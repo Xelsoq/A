@@ -32,11 +32,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Decode release keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > vz-pixelmusic.jks
 
       - name: Create keystore.properties
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > keystore.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> keystore.properties
