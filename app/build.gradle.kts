@@ -321,7 +321,7 @@ dependencies {
     implementation(libs.fuel.android)
     implementation(libs.fuel.json)
 
-    implementation("androidx.webkit:webkit:1.16.0")
+    implementation("androidx.webkit:webkit:1.17.0")
 
 
     // Identity & Background
