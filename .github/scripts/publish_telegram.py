@@ -70,21 +70,29 @@ async def publish():
         f"Android >= 11"
     )
 
-    apks = [
-        ("wear/build/outputs/apk/release/wear-release.apk",           "app-wearos-release.apk",          caption),
-        ("app/build/outputs/apk/release/app-arm64-v8a-release.apk",   "app-mobile-arm64-release.apk",    ""),
-        ("app/build/outputs/apk/release/app-armeabi-v7a-release.apk", "app-mobile-armeabi-release.apk",  ""),
-        ("app/build/outputs/apk/release/app-x86_64-release.apk",      "app-mobile-x86_64-release.apk",   ""),
-        ("app/build/outputs/apk/release/app-universal-release.apk",   "app-mobile-universal-release.apk",""),
+    # Dynamically discover APKs (handles AGP output path variations)
+    import glob
+    candidates = [
+        ("wear/build/outputs/apk/release/*release*.apk", "app-wearos-release.apk"),
+        ("app/build/outputs/apk/release/*arm64*.apk",    "app-mobile-arm64-release.apk"),
+        ("app/build/outputs/apk/release/*armeabi*.apk",  "app-mobile-armeabi-release.apk"),
+        ("app/build/outputs/apk/release/*x86_64*.apk",   "app-mobile-x86_64-release.apk"),
+        ("app/build/outputs/apk/release/*universal*.apk","app-mobile-universal-release.apk"),
     ]
-
-    # Verify all files exist before starting
-    for apk_path, _, _ in apks:
-        if not os.path.exists(apk_path):
-            print(f"ERROR: APK not found: {apk_path}", flush=True)
+    apks = []
+    for pattern, display_name in candidates:
+        matches = sorted(glob.glob(pattern))
+        if not matches:
+            # also try nested dirs (some AGP versions put ABI in a subfolder)
+            matches = sorted(glob.glob(pattern.replace("/release/", "/release/**/"), recursive=True))
+        if not matches:
+            print(f"ERROR: No APK matching {pattern}", flush=True)
             sys.exit(1)
+        apk_path = matches[0]
         size_mb = os.path.getsize(apk_path) / (1024 * 1024)
-        print(f"  Found: {apk_path} ({size_mb:.1f} MB)", flush=True)
+        print(f"  Found: {apk_path} ({size_mb:.1f} MB) → {display_name}", flush=True)
+        # first APK gets the full caption, others empty
+        apks.append((apk_path, display_name, caption if not apks else ""))
 
     reply_to = int(thread_id) if thread_id else None
 
