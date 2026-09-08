@@ -175,6 +175,7 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: "-1004388221744"
+          TELEGRAM_INVITE_LINK: ${{ secrets.TELEGRAM_INVITE_LINK }}
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
           COMMIT_SHA: ${{ github.sha }}
           IS_RELEASE: ${{ steps.version_check.outputs.is_new_version }}

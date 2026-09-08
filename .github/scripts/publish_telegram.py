@@ -9,7 +9,14 @@ Required env vars:
   TELEGRAM_API_ID       - from my.telegram.org (integer)
   TELEGRAM_API_HASH     - from my.telegram.org (string)
   TELEGRAM_BOT_TOKEN    - BotFather token
-  TELEGRAM_CHAT_ID      - e.g. "@PixelMusicApp"
+  TELEGRAM_CHAT_ID      - e.g. "@PixelMusicApp" or a numeric -100... id
+  TELEGRAM_INVITE_LINK  - (recommended for private groups/ids without a
+                           username) e.g. "https://t.me/+AbCdEfGhIjK".
+                           Bots start every run with an empty peer cache,
+                           so a bare numeric chat id raises PEER_ID_INVALID
+                           ("meet the peer" error) unless we resolve it via
+                           an invite link first. Public @usernames don't
+                           need this.
   TELEGRAM_THREAD_ID    - (optional) message thread id for topics
   VERSION_NAME          - app version string
   COMMIT_SHA            - full commit SHA
@@ -46,6 +53,7 @@ async def publish():
     api_hash   = os.environ["TELEGRAM_API_HASH"]
     bot_token  = os.environ["TELEGRAM_BOT_TOKEN"]
     chat_id    = os.environ["TELEGRAM_CHAT_ID"]
+    invite_link = os.environ.get("TELEGRAM_INVITE_LINK", "").strip()
     thread_id  = os.environ.get("TELEGRAM_THREAD_ID", "")
     version    = os.environ["VERSION_NAME"]
     commit_sha = os.environ["COMMIT_SHA"]
@@ -103,6 +111,18 @@ async def publish():
         bot_token=bot_token,
         in_memory=True,
     ) as app:
+        # Fresh (in-memory) bot sessions start with an empty peer cache.
+        # A bare numeric chat_id (private group/channel with no @username)
+        # then fails with PEER_ID_INVALID because the client has never
+        # "met" that peer. Resolving via the invite link fixes this even
+        # when the bot is already a member (Telegram just returns the
+        # chat info instead of re-joining), and caches it for this run.
+        if invite_link:
+            print(f"Resolving chat via invite link...", flush=True)
+            resolved_chat = await app.join_chat(invite_link)
+            chat_id = resolved_chat.id
+            print(f"  Resolved chat id: {chat_id}", flush=True)
+
         for apk_path, display_name, cap in apks:
             size_mb = os.path.getsize(apk_path) / (1024 * 1024)
             print(f"Uploading {display_name} ({size_mb:.1f} MB)...", flush=True)
