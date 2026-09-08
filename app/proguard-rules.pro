@@ -58,27 +58,27 @@
 -dontwarn com.softsynth.**
 
 # Mantener clases de datos y sus miembros para evitar que R8 Full elimine campos
--keepclassmembers class com.xelsoq.musicfy.data.model.** { *; }
--keepclassmembers class com.xelsoq.musicfy.domain.model.** { *; }
+-keepclassmembers class com.unshoo.pixelmusic.data.model.** { *; }
+-keepclassmembers class com.unshoo.pixelmusic.domain.model.** { *; }
 
 -keepattributes Signature, InnerClasses, EnclosingMethod, AnnotationDefault, *Annotation*
 
 # Cast framework classes loaded via manifest/reflective entry points.
--keep class com.xelsoq.musicfy.data.service.cast.CastOptionsProvider { *; }
+-keep class com.unshoo.pixelmusic.data.service.cast.CastOptionsProvider { *; }
 -keep class * implements com.google.android.gms.cast.framework.OptionsProvider
 
 # Gson generic type capture for backup/restore in release builds.
 -keep class com.google.gson.reflect.TypeToken { *; }
 -keep class * extends com.google.gson.reflect.TypeToken
--keep class com.xelsoq.musicfy.data.preferences.PreferenceBackupEntry { *; }
--keep class com.xelsoq.musicfy.data.backup.model.** { *; }
--keep class com.xelsoq.musicfy.data.backup.module.** { *; }
+-keep class com.unshoo.pixelmusic.data.preferences.PreferenceBackupEntry { *; }
+-keep class com.unshoo.pixelmusic.data.backup.model.** { *; }
+-keep class com.unshoo.pixelmusic.data.backup.module.** { *; }
 # Backup payload entities are part of the persisted .pxpl contract.
--keep class com.xelsoq.musicfy.data.database.FavoritesEntity { *; }
--keep class com.xelsoq.musicfy.data.database.SongEngagementEntity { *; }
--keep class com.xelsoq.musicfy.data.database.LyricsEntity { *; }
--keep class com.xelsoq.musicfy.data.database.SearchHistoryEntity { *; }
--keep class com.xelsoq.musicfy.data.database.TransitionRuleEntity { *; }
+-keep class com.unshoo.pixelmusic.data.database.FavoritesEntity { *; }
+-keep class com.unshoo.pixelmusic.data.database.SongEngagementEntity { *; }
+-keep class com.unshoo.pixelmusic.data.database.LyricsEntity { *; }
+-keep class com.unshoo.pixelmusic.data.database.SearchHistoryEntity { *; }
+-keep class com.unshoo.pixelmusic.data.database.TransitionRuleEntity { *; }
 
 # Netty channel classes are instantiated reflectively and require public no-arg constructors.
 # Without these, release builds can fail with:
@@ -169,7 +169,7 @@
 -dontwarn io.netty.**
 
 # Ensure internal server can start
--keep class com.xelsoq.musicfy.data.telegram.TelegramStreamProxy { *; }
+-keep class com.unshoo.pixelmusic.data.telegram.TelegramStreamProxy { *; }
 
 # Keep Kotlin reflection if needed by Ktor/Serialization in Release
 -keep class kotlin.reflect.** { *; }
@@ -214,24 +214,17 @@
     public static int i(...);
 }
 
-
-# =============================================================================
-# YouTube Music / NewPipe / Mozilla Rhino (from PixelMusic)
-# =============================================================================
 # Missing classes for JSoup Re2j regex delegate and Mozilla Rhino JSON converter bean introspection
 -dontwarn com.google.re2j.**
 -dontwarn java.beans.**
 
-# Gson/serialization keep rules for InnerTube API models
+# Gson serialization keep rules for Explore cache and InnerTube API models
+-keep class com.unshoo.pixelmusic.presentation.viewmodel.ExploreCacheModel { *; }
 -keep class unshoo.ianshulyadav.pixelmusic.innertube.models.** { *; }
 -keep class unshoo.ianshulyadav.pixelmusic.innertube.pages.** { *; }
 
 # Mozilla Rhino JS engine references missing javax.script API
 -dontwarn javax.script.**
 -dontwarn org.mozilla.javascript.engine.**
--dontwarn org.mozilla.javascript.**
 
-# NewPipe extractor
--dontwarn org.schabi.newpipe.**
--keep class org.schabi.newpipe.extractor.** { *; }
 

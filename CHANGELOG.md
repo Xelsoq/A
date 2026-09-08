@@ -7,78 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.7.5-beta] - 2026-06-13
+## [1.5.06] - Unreleased
 
 ### Added
-- **Google Drive:** Added Google Drive support and improved player lifecycle management.
-- **AI Lyrics:** Integrated AI lyrics translation logic in `LyricsStateHolder` and user preferences.
-- **Gemma:** Deleted old Gemini model IDs and integrated Gemma model support.
-- **Wear OS:** Added wear lyrics translation/romanization preferences and album art background.
-- **Diagnostics:** Added a lag diagnostic tool.
-- **Search:** Added multi-selection support to the Search screen.
-- **UI:** Added outlined button style for AOD screen.
-- **Connectivity:** Added support for HTTP URLs on local-network Navidrome and Jellyfin hosts.
-- **Localization:** Added Arabic and Turkish language support, and unrecognized languages.
-
-### Changed
-- **Battery Optimization:** Drastically reduced battery consumption via audio offload and adaptive UI polling.
-- **Queue System:** Refactored shuffle, queue reordering, and playback orchestration to `QueueStateHolder` using explicit queue indices.
-- **Transitions & Animations:** Implemented Material 3 Expressive motion curves for player, queue sheet, and screen transitions.
-- **Architecture:** Decomposed `MusicService` and modularized `PlayerViewModel` state listeners.
-- **Library Sync:** Optimized library sync with throttled scans and faster artwork loading.
-- **Database:** Migrated database to version 42 and updated Navidrome schema.
-- **Equalizer:** Added "Save New" action and improved layout.
-- **Localization:** Refactored app localization, resource cleanup, and UI text wrapping.
-- **Dependencies:** Bumped dependencies including `kotlinx-collections-immutable`, `okhttp`, and Gradle plugins.
+- **Smart Mix Playlist Generator (Last.fm Creator)**:
+  - Replicated and adapted the creation and discovery features of LastWave into a native, high-fidelity Kotlin and Jetpack Compose implementation.
+  - Created a dedicated "Smart Mix" config screen supporting 8 distinct generation modes (Top Tracks, Recent Tracks, Similar Tracks, Similar Artists, By Tag/Genre, My Mix, My Recommendations, My Library) and a track count selector (5-35 songs).
+  - Implemented parallel YouTube Music ID resolution pipeline with concurrency throttling (using Semaphores) and native Room database ingestion.
+  - Added an animated Sparkles (`AutoAwesome`) icon button with a pulsing scale/rotation effect and a custom "HOT" badge on the Explore Screen top bar, positioned to the left of the Settings icon.
+  - Added the "Recent Mixes (last.fm)" horizontal carousel to the Explore Screen with custom preview cards mapping mixes natively.
 
 ### Fixed
-- **Playback:** Resolved buffering issues, song skipping lags, and unnecessary recompositions during playback.
-- **Media Store Sync:** Improved MediaStore URI resolution, external song deletion, and Android 11+ storage volume resolution.
-- **Lyrics & Metadata:** Fixed Chinese lyrics detection, pinyin tone suffixes, and batch metadata/artwork editing consistency.
-- **Wear OS:** Resolved memory issues and state persistence.
-- **UI:** Fixed marquee text fade glitches, navigation bar corner behavior, blur issues, scrollbar bugs, and layout/padding insets.
-- **Other:** Fixed backup playlist update issues and startup AI provider errors.
+- **SmartMixViewModel `fetchRecommendations` thread-safety**: The `weighted` candidate list was a plain `mutableListOf` being concurrently written by 4 parallel `launch` coroutines inside `coroutineScope`, causing a potential `ConcurrentModificationException` crash in the "My Recommendations" mode. Fixed by wrapping with `Collections.synchronizedList`.
 
-### New Contributors
-- @YtMechnij made their first contribution in https://github.com/theovilardo/PixelPlayer/pull/2106
-- @juinc made their first contribution in https://github.com/theovilardo/PixelPlayer/pull/2109
-- @ZL114514 made their first contribution in https://github.com/theovilardo/PixelPlayer/pull/2159
-- @aliabbasov99 made their first contribution in https://github.com/theovilardo/PixelPlayer/pull/2262
-- @Hisham-Alzamzami made their first contribution in https://github.com/theovilardo/PixelPlayer/pull/2335
-
-
-## [0.7.0-beta] - 2026-05-25
+## [1.4.06] - 2026-06-06
 
 ### Added
-- **Wear OS:** Music transfer, local playback, queue synchronization, and remote control from the watch.
-- **AI:** Groq AI and OpenRouter (experimental) with token optimization and AI-powered playlist generation.
-- **Cloud & Streaming:** Jellyfin support.
-- Direct song synchronization from server albums in Navidrome.
-- Standardized branding for NetEase Music.
-- **Lyrics:** Synchronized translation with a dedicated toggle and Kugou LRC format support.
-- Text alignment customization and improvements to TTML parsing.
-- Advanced romanization for Japanese characters.
-- **UI/UX:** Redesigned queue sheet and "Recently Played" pills with a dynamic palette.
-- Marquee support for long titles and a compact mode for the navigation bar.
-- New horizontal timeline for monthly statistics and multi-artist support.
-- **Telegram:** Native support for topics, playlist display, and reactive updates.
+- **Last.fm Scrobbler Integration**:
+  - Implemented background playback scrobbling engine that calculates progress in real-time.
+  - Added live "Now Playing" updates synced automatically during playback.
+  - Added dedicated Last.fm settings UI containing threshold configuration sliders (Minimum Track Duration, Delay Percentage, and Max Delay Duration).
+  - Added connection management card inside the Accounts screen supporting active username labels and dynamic logouts.
+  - Integrated customizable inputs for **API Key** and **API Secret** during linking, and enforced them as **compulsory fields** to prevent rate-limiting bottlenecks and enhance security.
+- **YouTube Music Playlist Export & Import**:
+  - Integrated support for playlist exports and imports using standard M3U and CSV formats.
+  - Implemented URL-decoding for paths, extensionless filename matching, and automated lookup via YouTube Music search to resolve missing local/remote tracks.
+  - Optimized lookup speeds using concurrent network requests, bulk database insertions, and duplicate merge confirmation flows.
+  - Enhanced import pipelines to retrieve and persist rich metadata alongside high-quality album art.
+- **Audio Streaming Improvements**:
+  - Prioritized Opus audio format streaming to optimize and accelerate initial playback load latency.
 
 ### Changed
-- **Audio Engine:** Complete overhaul with support for MIDI, improvements to ALAC/M4A/Opus, and decoder optimization (including Samsung-specific decoders).
-- **Energy Efficiency:** Drastically reduced battery consumption and thermal optimization through UI task gates.
-- **Database and Cache:** Massive optimizations to queries, cover art cache controller v3, and support for Scoped Storage.
-- **Startup:** Improved load times through optimized generation of Baseline Profiles.
-- Project license changed from MIT to Proprietary License.
+- Removed default built-in Last.fm API credential fallbacks in the UI, requiring each user to register their own developer credentials.
 
 ### Fixed
-- **Playback:** Fixed stuttering in Opus/MP3, errors in ReplayGain during crossfades, and flickering during album art changes.
-- **Navigation:** Fixed navigation loops in Telegram and improved screen entry/exit animations.
-- **Stability:** Eliminated crashes on Android 12+, fixed memory leaks (ANRs), and improved exception handling in background services.
-- **Security:** CI hardening, encryption of cloud storage credentials, and media server access control.
+- **CI/CD & Nightly Releases**: Integrated Pyrogram MTProto inside nightly Telegram publishers to bypass the 50MB Bot API file size upload limit, added fallbacks for GitHub release redirect links, and added rate-limiting delay retries.
+- **R8 / ProGuard Optimization**:
+  - Added ProGuard keep rules for Explore caching data models to prevent Gson ClassCastExceptions.
+  - Added dontwarn rules for `javax.script` and `org.mozilla.javascript.engine` to resolve release R8 build compilation failures.
+- **UI & Stability**: Resolved Quick Picks personalization errors, auto-queue online mix radio transition bugs, and Artist See All list pagination regressions.
 
-### Localization
-- 🇪🇸 **Spanish** | 🇫🇷 **French** | 🇷🇺 **Russian**
-- 🇨🇳 **Simplified Chinese** | 🇮🇩 **Indonesian** | 🇮🇹 **Italian** | 🇩🇪 **German**
+
+
 
 ## [0.6.0-beta] - 2026-03-05
 
@@ -212,7 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-beta] - 2024-08-30
 
 ### Added
-- Initial beta release of PixelPlayer Music Player.
+- Initial beta release of PixelMusic Music Player.
 - Local music scanning and playback (MP3, FLAC, AAC).
 - Background playback using a foreground service and Media3.
 - Modern UI with Jetpack Compose, Material 3, and Dynamic Color support.

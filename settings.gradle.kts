@@ -33,9 +33,12 @@ dependencyResolutionManagement {
                 includeGroup("com.github.TeamNewPipe")
             }
         }
+        maven("https://storage.googleapis.com/snap-kit-build/maven")
     }
 }
 
-rootProject.name = "Musicfy"
+rootProject.name = "PixelMusic"
 include(":app")
+include(":shared")
+include(":wear")
 include(":baselineprofile")

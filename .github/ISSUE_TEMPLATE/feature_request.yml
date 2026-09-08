@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for your interest in improving Musicfy!
+        Thanks for your interest in improving PixelMusic!
   - type: textarea
     id: problem
     attributes:

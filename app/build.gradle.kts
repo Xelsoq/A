@@ -1,42 +1,13 @@
-import java.io.File
 import java.util.Properties
-import javax.inject.Inject
-import org.gradle.api.DefaultTask
-import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.file.FileSystemOperations
-import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.OutputDirectory
-import org.gradle.api.tasks.TaskAction
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.ksp)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.dagger.hilt.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.baselineprofile)
     id("kotlin-parcelize")
-}
-
-abstract class CopyThirdPartyNotices : DefaultTask() {
-    @get:InputFile
-    abstract val sourceFile: RegularFileProperty
-
-    @get:OutputDirectory
-    abstract val outputDirectory: DirectoryProperty
-
-    @get:Inject
-    abstract val fileSystemOperations: FileSystemOperations
-
-    @TaskAction
-    fun copyNotice() {
-        fileSystemOperations.copy {
-            from(sourceFile)
-            into(outputDirectory)
-        }
-    }
 }
 
 // Load keystore properties early to avoid unresolved references inside the android block
@@ -54,23 +25,17 @@ val localProperties = Properties().apply {
     }
 }
 
-val enableAbiSplits = providers.gradleProperty("musicfy.enableAbiSplits")
+val enableAbiSplits = providers.gradleProperty("pixelmusic.enableAbiSplits")
     .getOrElse("true")
     .toBoolean()
 
-val enableComposeCompilerReports = providers.gradleProperty("musicfy.enableComposeCompilerReports")
+val enableComposeCompilerReports = providers.gradleProperty("pixelmusic.enableComposeCompilerReports")
     .getOrElse("false")
     .toBoolean()
 
-val generatedNoticesAssets = layout.buildDirectory.dir("generated/assets/thirdPartyNotices")
-val copyThirdPartyNotices = tasks.register<CopyThirdPartyNotices>("copyThirdPartyNotices") {
-    sourceFile.set(rootProject.layout.projectDirectory.file("THIRD_PARTY_NOTICES.md"))
-    outputDirectory.set(generatedNoticesAssets)
-}
-
 @Suppress("DEPRECATION")
 android {
-    namespace = "com.xelsoq.musicfy"
+    namespace = "com.unshoo.pixelmusic"
     compileSdk = 37
 
     sourceSets {
@@ -98,10 +63,13 @@ android {
                 "META-INF/LICENSE.txt"
             )
         }
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     defaultConfig {
-        applicationId = "com.xelsoq.musicfy"
+        applicationId = "com.unshoo.pixelmusic"
         minSdk = 30
         targetSdk = 37
         versionCode = (project.findProperty("APP_VERSION_CODE") as? String)?.toInt() ?: 1
@@ -109,20 +77,38 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val telegramApiId = localProperties.getProperty("TELEGRAM_API_ID")?.ifEmpty { null }
-            ?: "2040"
-        val telegramApiHash = localProperties.getProperty("TELEGRAM_API_HASH")?.ifEmpty { null }
-            ?: "b18441a1ff607e10a989891a5462e627"
-        buildConfigField("int", "TELEGRAM_API_ID", telegramApiId)
+        val telegramApiId = localProperties.getProperty("TELEGRAM_API_ID") ?: ""
+        val telegramApiHash = localProperties.getProperty("TELEGRAM_API_HASH") ?: ""
+        buildConfigField("int", "TELEGRAM_API_ID", telegramApiId.ifEmpty { "0" })
         buildConfigField("String", "TELEGRAM_API_HASH", "\"$telegramApiHash\"")
+
+        val lastfmApiKey = localProperties.getProperty("LASTFM_API_KEY")
+            ?: System.getenv("LASTFM_API_KEY")
+            ?: ""
+        val lastfmSecret = localProperties.getProperty("LASTFM_SECRET")
+            ?: System.getenv("LASTFM_SECRET")
+            ?: ""
+        buildConfigField("String", "LASTFM_API_KEY", "\"$lastfmApiKey\"")
+        buildConfigField("String", "LASTFM_SECRET", "\"$lastfmSecret\"")
     }
 
+    val keystoreFile = rootProject.file("vz-pixelmusic.jks")
+    val keystorePropsFile = rootProject.file("keystore.properties")
+    val keystoreExists = keystorePropsFile.exists() &&
+        keystoreFile.exists() &&
+        keystoreFile.length() > 0 &&
+        !keystoreProperties.getProperty("storePassword").isNullOrBlank() &&
+        !keystoreProperties.getProperty("keyAlias").isNullOrBlank() &&
+        !keystoreProperties.getProperty("keyPassword").isNullOrBlank()
+
     signingConfigs {
-        create("release") {
-            storeFile = file("$rootDir/vz-musicfy.jks")
-            storePassword = keystoreProperties.getProperty("storePassword") ?: "dummyPassword"
-            keyAlias = keystoreProperties.getProperty("keyAlias") ?: "dummyAlias"
-            keyPassword = keystoreProperties.getProperty("keyPassword") ?: "dummyPassword"
+        if (keystoreExists) {
+            create("release") {
+                storeFile = rootProject.file("vz-pixelmusic.jks")
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
         }
     }
 
@@ -132,11 +118,8 @@ android {
         }
 
         release {
-            val keystoreFile = file("$rootDir/vz-musicfy.jks")
-            signingConfig = if (keystoreFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            if (keystoreExists) {
+                signingConfig = signingConfigs.getByName("release")
             }
             isMinifyEnabled = true
             isShrinkResources = true
@@ -178,8 +161,8 @@ android {
             isEnable = enableAbiSplits
             reset()
             if (enableAbiSplits) {
-                include("arm64-v8a", "armeabi-v7a")
-                isUniversalApk = false
+                include("arm64-v8a", "armeabi-v7a", "x86_64")
+                isUniversalApk = true  // also produce a universal APK
             }
         }
     }
@@ -188,15 +171,6 @@ android {
         abi.enableSplit = true
         density.enableSplit = true
         language.enableSplit = true
-    }
-}
-
-androidComponents {
-    onVariants(selector().all()) { variant ->
-        variant.sources.assets?.addGeneratedSourceDirectory(
-            copyThirdPartyNotices,
-            CopyThirdPartyNotices::outputDirectory,
-        )
     }
 }
 
@@ -221,6 +195,7 @@ ksp {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        freeCompilerArgs.add("-Xannotation-default-target=param-property")
 
         if (enableComposeCompilerReports) {
             val buildDir = project.layout.buildDirectory.get().asFile.absolutePath
@@ -237,6 +212,16 @@ kotlin {
 }
 
 dependencies {
+    // InnerTube dependencies merged
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.okhttp.dnsoverhttps)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.json)
+    implementation(libs.ktor.client.encoding)
+    implementation(libs.brotli)
+    implementation(libs.re2j)
+    implementation(libs.rhino)
     // Core & Optimization
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.androidx.profileinstaller)
@@ -263,8 +248,7 @@ dependencies {
     implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.material)
     implementation(libs.androidx.appcompat)
-    implementation(libs.aboutlibraries.core)
-    implementation(libs.aboutlibraries.compose.m3)
+    implementation("androidx.webkit:webkit:1.16.0")
 
     // DI & Navigation
     implementation(libs.hilt.android)
@@ -302,6 +286,10 @@ dependencies {
     implementation(libs.androidx.graphics.shapes)
 
     // Networking & Serialization
+    implementation(libs.newpipe.extractor)
+    implementation(libs.fuel.android)
+    implementation(libs.fuel.json)
+    implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.okhttp)
@@ -311,21 +299,10 @@ dependencies {
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.okhttp)
-    implementation(libs.ktor.client.content.negotiation)
-    implementation(libs.ktor.serialization.json)
-    implementation(libs.ktor.client.encoding)
-    implementation(libs.newpipe.extractor)
-    implementation(libs.okhttp.dnsoverhttps)
-    implementation(libs.fuel.android)
-    implementation(libs.fuel.json)
-
-    implementation("androidx.webkit:webkit:1.16.0")
-
 
     // Identity & Background
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services.auth)
@@ -354,6 +331,15 @@ dependencies {
         exclude(group = "androidx.compose.runtime")
         exclude(group = "androidx.compose.ui")
     }
+
+    // Snapchat Creative Kit
+    implementation("com.snapchat.kit.sdk:creative:1.13.2")
+    implementation("com.snapchat.kit.sdk:core:1.13.2")
+
+    // Projects
+    implementation(project(":shared"))
+
+
 
     // Testing (Unit)
     testImplementation(libs.junit.jupiter.api)
@@ -409,9 +395,6 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
-
-// Fuel pulls an old kotlin-android-extensions-runtime that conflicts with parcelize.
 configurations.all {
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-android-extensions-runtime")
 }
-

@@ -20,8 +20,8 @@
 
     <color name="my_tertiary">#7D5260</color>
     <color name="my_on_tertiary">#FFFFFF</color>
-    <color name="musicfy_widget_background_color">#FF2C1D4D</color>
+    <color name="pixelmusic_widget_background_color">#FF2C1D4D</color>
 
-    <color name="musicfy_purple_dark">#19191B</color>
+    <color name="pixel_play_purple_dark">#19191B</color>
     <color name="light_background">#EDEDED</color>
 </resources>
