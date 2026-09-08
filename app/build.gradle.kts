@@ -93,10 +93,8 @@ android {
     }
 
     val keystoreFile = rootProject.file("vz-pixelmusic.jks")
-    val keystorePropsFile = rootProject.file("keystore.properties")
-    val keystoreExists = keystorePropsFile.exists() &&
-        keystoreFile.exists() &&
-        keystoreFile.length() > 0 &&
+    val keystoreExists = rootProject.file("keystore.properties").exists() &&
+        keystoreFile.exists() && keystoreFile.length() > 0 &&
         !keystoreProperties.getProperty("storePassword").isNullOrBlank() &&
         !keystoreProperties.getProperty("keyAlias").isNullOrBlank() &&
         !keystoreProperties.getProperty("keyPassword").isNullOrBlank()
