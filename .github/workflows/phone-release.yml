@@ -63,7 +63,7 @@ jobs:
           echo "TELEGRAM_API_HASH=${{ secrets.TELEGRAM_API_HASH }}" >> local.properties
 
       - name: Build all split + universal release APKs
-        run: ./gradlew :app:assembleRelease :wear:assembleRelease -Ppixelmusic.enableAbiSplits=true
+        run: gradle :app:assembleRelease :wear:assembleRelease -Ppixelmusic.enableAbiSplits=true
 
       # ── Read version from gradle.properties (single source of truth) ──────────
       - name: Read version name
