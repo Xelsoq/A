@@ -65,12 +65,16 @@ jobs:
             "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose "$apk"
           done
 
-      - name: Upload Phone split APK artifacts
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: Musicfy-phone-release-split-apks
-          path: |
-            app/build/outputs/apk/release/app-arm64-v8a-release.apk
+      - name: Send Phone split APKs to Telegram
+        run: |
+          BOT_TOKEN="8803306880:AAGgsSBmAgJZnkAtj7gn8aFK1f9xgWxnEiE"
+          CHAT_ID="-1004388221744"
+          for apk in \
+            app/build/outputs/apk/release/app-arm64-v8a-release.apk \
             app/build/outputs/apk/release/app-armeabi-v7a-release.apk
-          if-no-files-found: error
-          compression-level: 0
+          do
+            curl -sS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
+              -F chat_id="${CHAT_ID}" \
+              -F document=@"${apk}" \
+              -F caption="Musicfy release build ($(basename "$apk")) — commit ${GITHUB_SHA::7}"
+          done
