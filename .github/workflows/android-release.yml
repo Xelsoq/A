@@ -54,22 +54,12 @@ jobs:
           echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" >> ./local.properties
           echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> ./local.properties
 
-      - name: Update environment variables
-        env:
-          BASE_64_SIGNING_KEY: ${{ secrets.BASE_64_SIGNING_KEY }}
-        run:
-          echo $BASE_64_SIGNING_KEY | base64 -d > simpmusic.jks
-
       - name: Update build product flavor
         run: |
           echo "" >> ./gradle.properties
           echo "isFullBuild=true" >> ./gradle.properties
 
       - name: Build full release APK
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./build_and_sign_apk.sh --release --full
 
       - name: Upload APK
@@ -99,22 +89,12 @@ jobs:
           distribution: "microsoft"
           cache: 'gradle'
 
-      - name: Update environment variables
-        env:
-          BASE_64_SIGNING_KEY: ${{ secrets.BASE_64_SIGNING_KEY }}
-        run:
-          echo $BASE_64_SIGNING_KEY | base64 -d > simpmusic.jks
-
       - name: Update build product flavor
         run: |
           echo "" >> ./gradle.properties
           echo "isFullBuild=false" >> ./gradle.properties
 
       - name: Build foss release APK
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./build_and_sign_apk.sh --release --foss
 
       - name: Upload APK
