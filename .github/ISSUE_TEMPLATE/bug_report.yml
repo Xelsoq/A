@@ -1,104 +1,48 @@
-name: Bug report
-description: Report a reproducible issue in SimpMusic
-labels: [ "bug:unconfirmed" ]
-
+name: Bug Report
+description: Create a report to help us improve Musicfy
+title: "[Bug]: "
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        ⚠️ **Important:**  
-        Issues that are incomplete or not properly filled out will be closed without further explanation.
-
-  - type: checkboxes
-    id: duplicate_check
-    attributes:
-      label: Duplicate Check
-      description: Confirm you searched both open and closed issues.
-      options:
-        - label: I confirm I searched for existing reports and found no duplicates.
-          required: true
-
+        Thanks for taking the time to fill out this bug report!
   - type: textarea
-    id: bug_description
+    id: description
     attributes:
-      label: Describe the Bug
-      placeholder: Briefly describe the bug you encountered.
+      label: Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what you were trying to do and what happened instead.
     validations:
       required: true
-
   - type: textarea
-    id: reproduce
+    id: reproduction
     attributes:
       label: Steps to Reproduce
+      description: How can we trigger the issue?
       placeholder: |
-        1. …
-        2. …
-        3. …
-        4. …
+        1. Open the app
+        2. Go to '...'
+        3. Click on '....'
+        4. See error
     validations:
       required: true
-
   - type: textarea
-    id: expected
+    id: environment
     attributes:
-      label: Expected Behavior
-      placeholder: Describe what you expected to happen instead.
+      label: Device Environment
+      description: What is your device model and OS version?
+      placeholder: |
+        Model: (e.g. Pixel 8, Galaxy Watch 4)
+        OS Version: (e.g. Android 14, Wear OS 4)
     validations:
       required: true
-
-  - type: input
-    id: version
-    attributes:
-      label: App Version
-      placeholder: e.g. 1.0.0
-    validations:
-      required: true
-
-  - type: markdown
-    attributes:
-      value: |
-        ### 📱 Device Information
-        Please provide details about the device where the issue occurred.
-
-  - type: input
-    id: android_version
-    attributes:
-      label: Android Version
-      placeholder: e.g. Android 15
-    validations:
-      required: true
-
-  - type: input
-    id: device_model
-    attributes:
-      label: Device Model
-      placeholder: e.g. Google Pixel 7 Pro
-    validations:
-      required: true
-
-  - type: checkboxes
-    id: custom_rom
-    attributes:
-      label: Custom ROM
-      description: Check this if you are using a custom ROM.
-      options:
-        - label: I am using a custom ROM
-
-  - type: input
-    id: rom_name
-    attributes:
-      label: Custom ROM Name (if applicable)
-      description: Only fill this out if you checked the box above.
-      placeholder: e.g. LineageOS 21, crDroid, Pixel Experience
-
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots (optional)
-      placeholder: Add screenshots if they help show the issue.
-
   - type: textarea
     id: logs
     attributes:
-      label: Log / Error Details
-      placeholder: Paste the crash log here if the app crashed.
+      label: Logs / Screenshots
+      description: Please provide relevant logs (use `adb logcat` if experienced), screenshots, or plaintext. We suggest placing plaintext logs between "```txt" (above) and "```" (below).
+      placeholder: |
+        Add logs or describe the crash/visual issue here.
+    validations:
+      required: false

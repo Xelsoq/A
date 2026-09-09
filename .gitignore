@@ -1,48 +1,51 @@
 *.iml
+.DS_Store
+hs_err_pid*.log
+*.salive
+*.apk
+*.aab
+**.jks
+
 .gradle
+.gradle-local/
+.gradle-temp/
+.kotlin/
 /local.properties
+local.properties
+keystore.properties
+
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
-.DS_Store
+/.idea/planningMode.xml
+
 /build
 /captures
 .externalNativeBuild
 .cxx
-local.properties
-/app/release/
-crowdin.yml
-# Kotlin 2.0
-.kotlin/
-.idea
-/simpmusic.jks
-/ffmpeg-kit/build/
+benchmark-results/
 
-#dev files
-ign.md
-.docs
-# Sentry Config File
-sentry.properties
-/composeApp/build/
-/composeApp/cache/
-/composeApp/kcef-bundle/
-/.mcp.json
-/.claude/settings.local.json
-/androidApp/build/
-/androidApp/cache/
-/lastfm/build/
-/lastfm-empty/build/
-# libmpv native libraries (downloaded by `./gradlew :composeApp:mpvSetupAll`)
-/mpv-natives/
-# Agent scratch state. NOT anchored to the repo root: agents drop .omc/ next to
-# whatever directory they happen to be working in, which is how 21 of these ended
-# up committed under composeApp/src/.
-.omc/
-/desktopApp/build/
-# Conveyor auto-generated config (run `./gradlew :desktopApp:writeConveyorConfig`)
-/desktopApp/generated.conveyor.conf
-# Conveyor output directory
-/output/
+app/build/
+app/release/
+wear/build/
+wear/release/
+shared/build/
+baselineprofile/build/
+
+misc.xml
+CLAUDE.md
+markdown.xml
+.vscode/
+.agents/
+
+# Node/tooling dependencies and local env files
+**/node_modules/
+**/dist/
+**/.vite/
+**/.understand-anything/
+**/.env
+**/.env.*
+!**/.env.example
