@@ -45,6 +45,9 @@ jobs:
         with:
           submodules: 'recursive'
 
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -199,6 +202,9 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v6
+
+      - name: Make wrap-mac-dmg.sh executable
+        run: chmod +x scripts/wrap-mac-dmg.sh
 
       - name: Install create-dmg + ImageMagick
         # create-dmg = sindresorhus brew formula. ImageMagick is used to
