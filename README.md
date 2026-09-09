@@ -1,254 +1,231 @@
-# Pixel Music 🎵
+<div align="center"> <img src="https://raw.githubusercontent.com/maxrave-dev/SimpMusic/dev/fastlane/metadata/android/en-US/images/featureGraphic.png"> <h1>SimpMusic</h1>  
+A FOSS YouTube Music client for Android and Desktop with many features from<br>Spotify, SponsorBlock, ReturnYouTubeDislike using Compose Multiplatform to develop.
+<br> 
+<br>
+<a href="https://github.com/maxrave-dev/SimpMusic/releases"><img src="https://img.shields.io/github/v/release/maxrave-dev/SimpMusic"></a> <a href="https://github.com/maxrave-dev/SimpMusic/releases"><img src="https://img.shields.io/github/downloads/maxrave-dev/SimpMusic/total"></a> <br> <br> <a href="https://trendshift.io/repositories/13482" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13482" alt="maxrave-dev%2FSimpMusic | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<br>
+<br>
+<a href="https://www.producthunt.com/products/simpmusic/reviews?utm_source=badge-product_rating&utm_medium=badge&utm_source=badge-simpmusic" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/product_rating.svg?product_id=903836&theme=dark" alt="SimpMusic - A&#0032;FOSS&#0032;YouTube&#0032;Music&#0032;client&#0032;for&#0032;Android&#0032;with&#0032;many&#0032;features | Product Hunt" style="width: 242px; height: 108px;" width="242" height="108" /></a>
+<br> 
+<h4>Download</h4>  
+<a href="https://apt.izzysoft.de/packages/com.maxrave.simpmusic/"><img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" width="200"></a> 
+<a href="https://f-droid.org/en/packages/com.maxrave.simpmusic/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" width="200"></a> 
+<a href="https://www.openapk.net/simpmusic/com.maxrave.simpmusic/"><img src="https://www.openapk.net/images/openapk-badge.png" width="200"></a> 
+<a href="https://github.com/maxrave-dev/SimpMusic/releases"><img src="https://raw.githubusercontent.com/NeoApplications/Neo-Backup/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" width="200"></a> 
+<h4>Nightly Build</h4>  
+<a href="https://simpmusic.org/nightly-download"><img src="https://github.com/maxrave-dev/SimpMusic/actions/workflows/android.yml/badge.svg"></a><br/> <a href="https://simpmusic.org/nightly-download"><img src="https://raw.githubusercontent.com/NeoApplications/Neo-Backup/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" width="200"></a> 
+</div>  
 
-<p align="center">
-  <img src="assets/LauncherIcon.png" alt="Pixel Music App Icon" width="128"/>
-</p>
-
-<p align="center">
-  <strong>The Ultimate Hybrid Local, Streaming, and Cloud Music Powerhouse for Android</strong><br>
-  An elegant, feature-rich audio system built using Jetpack Compose, Material Design 3, and Media3 ExoPlayer.
-</p>
-
-<p align="center">
-  <img src="assets/screenshot1.jpg" alt="Pixel Music Library View" width="150" style="border-radius:26px; margin: 4px;"/>
-  <img src="assets/screenshot2.jpg" alt="Pixel Music Player Sheet" width="150" style="border-radius:26px; margin: 4px;"/>
-  <img src="assets/screenshot3.jpg" alt="Pixel Music Equalizer" width="150" style="border-radius:26px; margin: 4px;"/>
-  <img src="assets/screenshot4.jpg" alt="Pixel Music Sync Lyrics" width="150" style="border-radius:26px; margin: 4px;"/>
-</p>
-
-<p align="center">
-  <a href="https://android.com"><img src="https://img.shields.io/badge/Android-11%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 11+"></a>
-  <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-100%25-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 100%"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge" alt="Proprietary License"></a>
-  <a href="https://t.me/PixelMusicApp"><img src="https://img.shields.io/badge/Telegram-Join%20Channel-229ED9?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Channel"></a>
-  <a href="https://github.com/ianshulyadav/PixelMusic"><img src="https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge" alt="PRs Welcome"></a>
-</p>
-
-> [!NOTE]
-> **Independent Fork & Attribution Notice:** This repository is an independent, community-driven fork of the excellent open-source project **[PixelPlayer](https://github.com/theovilardo/PixelPlayer)** created by **[Theo Vilardo](https://github.com/theovilardo)**. It is modified and distributed under the terms of the [Proprietary License](LICENSE). We extend our sincere gratitude to Theo Vilardo and all original contributors for their outstanding foundation work.
-
----
-
-## 📖 Introduction & Philosophy
-
-**Pixel Music** is not just another music player. It is a unified, privacy-first audio powerhouse engineered for audiophiles, cloud hoarders, and streaming enthusiasts alike. By bridging local offline library indexing, unofficial YouTube Music streaming, Telegram channel integration, Google Drive personal cloud libraries (WIP), and next-generation Generative AI capabilities, Pixel Music creates a flawless hybrid music ecosystem under a single, gorgeous user experience.
-
-**Pixel Music** is the ultimate hybrid local and yt music client built for Android. It represents a gorgeous, open-source Spotify and YT Premium alternative. This application brings all of your music sources under a single, beautiful roof.
-
-You can scan and play high-resolution local files like FLAC, ALAC, WAV, and MP3. At the same time, you can stream the entire YouTube Music catalog without advertisements. Additionally, you can connect your Telegram account to stream audio directly from channels, chats, and saved files.
-
-Beautifully styled on the state-of-the-art **PixelPlayer** UI/UX, the interface adapts dynamically to the colors of your album artwork. The app is loaded with advanced features. You can follow along with synchronized LRC lyrics (complete with manual timing offset adjustments). You can customize your sound with a professional 10-band equalizer. You can also connect to other systems using built-in Chromecast, full Android Auto driving support, and a Wear OS watch companion.
-
-The app even includes custom generative AI playlist creation. You can simply describe a mood or style, and the built-in Gemini assistant will instantly curate the perfect queue for you. Released under the Proprietary License, Pixel Music provides a highly premium, privacy-focused, and completely unrestricted audio experience.
-
----
-
-## ⚡ The Ultimate Comparative Advantage
-
-Pixel Music incorporates the best concepts of open-source streaming clients and elevates them with offline power, premium styling, and AI. Here is how Pixel Music compares to other elite Android audio projects:
-
-| Feature Dimension | **OpenTune** | **Metrolist** | **ArchiveTune** | **Pixel Music 🎵 (This App)** |
-|:---|:---:|:---:|:---:|:---:|
-| **Core Concept** | YouTube Music Streaming | YouTube Music Streaming | YT Music & Local Hybrid | **Ultimate Hybrid (Local, YT Music, Telegram, Google Drive)** |
-| **Visual Aesthetics** | Classic Material 3 | Dynamic M3 (Utility-focused) | Material 3 Utility | **State-of-the-Art Expressive UI** (Vibrant, glassmorphism, fluid micro-interactions) |
-| **Dynamic Coloring** | Standard Material You | Basic Album Color Sync | Basic Album Color Sync | **Adaptive Palette Extraction** (Dynamic player background, expressive list tiles) |
-| **Audio Core** | ExoPlayer | ExoPlayer + Normalization | ExoPlayer + R128 | **Media3 ExoPlayer + FFmpeg Decoders + 10-Band EQ** |
-| **Lyrics Pipeline** | LRCLIB (Sync) | LRCLIB + Romanization | LRCLIB + Translation | **LRCLIB + Dynamic Offset Sync + Offline caching + manual search** |
-| **AI Integration** | None | None | None | **Generative AI Playlist Creator** (Gemini, DeepSeek, OpenAI support) |
-| **Connectivity** | Background Play | Cast, Sleep Timer | Scrobble, Cast | **Android Auto, Chromecast, Wear OS, Last.fm & ListenBrainz** |
-| **Legal/License Safety** | GPL-3.0 | GPL-3.0 | GPL-3.0 | **Proprietary (Personal, non-commercial use only)** |
-
----
-
-## 🗺️ System & Architectural Blueprint
-
-Pixel Music's architecture uses clean MVVM patterns. The flow of audio, synchronization, caching, and state displays as follows:
-
-```mermaid
-graph TD
-    %% Styling
-    classDef ui fill:#D7E3FF,stroke:#005AC1,stroke-width:2px,color:#000000;
-    classDef logic fill:#CCE8EA,stroke:#004F58,stroke-width:2px,color:#000000;
-    classDef service fill:#D9E2FF,stroke:#27304E,stroke-width:2px,color:#000000;
-    classDef data fill:#CBEFD0,stroke:#042106,stroke-width:2px,color:#000000;
-    classDef external fill:#FCE4EC,stroke:#C2185B,stroke-width:2px,color:#000000;
-
-    %% Components
-    UI[Jetpack Compose Expressive UI <br> Dynamic Material You Sheets / Sliders / Widgets]:::ui
-    VM[ViewModels <br> PlayerViewModel / SettingsViewModel / SearchViewModel]:::logic
-    QM[QueuePreloadManager & AccountManager]:::logic
+> SimpMusic is available on Desktop now!
+  
+## Features ✨️    
+- Play music from YouTube Music or YouTube for free, without ads and in the background
+- Three Now Playing styles: Classic, Material 3 Expressive and Apple Music (NEW)
+- Ten-band equalizer with presets and AutoEq headphone profiles (NEW)
+- SimpMusic Wrapped: your year in music, plus monthly recap playlists (NEW)
+- On-device listening analytics: charts, period history, listening clock (NEW)
+- Word-by-word Apple Music-style lyrics, romanization for 12 languages, share lyrics as an image (NEW)
+- Home screen widgets: turntable, playlists and listening insights (NEW)
+- High quality up-to 256kbps stream (Opus or AAC) for YouTube Music Premium users
+- Browsing Home, Charts, Podcast, Moods & Genre with YouTube Music data at high speed    
+- Search everything on YouTube    
+- Spotify Canvas supported    
+- Power your experience with SimpMusic Chart (https://chart.simpmusic.org/)
+- Play 1080p video option with subtitle    
+- AI song suggestions    
+- Import playlists converted from Spotify and other apps
+- Customize your playlist, synced with YouTube Music
+- Notifications from followed artists    
+- Caching and offline playback support    
+- Crossfade with DJ-style like Apple Music
+- Customizing THEME (Light, Dark, Color, etc)
+- Synced lyrics from SimpMusic Lyrics, LRCLIB, Spotify (require login) and YouTube Transcript - AI lyrics translation (BETA) (\*)  
+- Personalize data (\**) and multi-YouTube-account support    
+- Last.fm scrobbling (Full version)
+- Supports SponsorBlock and Return YouTube Dislike
+- Sleep Timer    
+- Android Auto with online content, feature rich UI/UX
+- Discord Rich Presence support
+- Listen Together: shared rooms that play in sync with friends, compatible with Metrolist (NEW)
+- And many more!    
+  
+> (\*) Use your OpenAI or Gemini API key    
+> (\**) For users who chose "Send back to Google" feature    
     
-    subgraph Data_Layer [Data & Storage Layer]
-        RoomDB[(Room Database <br> Metadata, Offline Logs, Cache)]:::data
-        Prefs[(DataStore Preferences <br> UI Constants & Equalizer Profiles)]:::data
-        FS[(Local File System <br> MP3/FLAC/LRC Files)]:::data
-    end
-
-    subgraph Service_Layer [Audio & Service Core]
-        MS[Media3 MediaLibraryService]:::service
-        Exo[Media3 ExoPlayer Engine]:::service
-        FFmpeg[FFmpeg Extension Decoders]:::service
-        EQ[10-Band EQ & Audio Processors]:::service
-    end
-
-    subgraph Network_Providers [API & Streaming Layer]
-        YT[InnerTube Client <br> YouTube Music Streamer]:::external
-        NP[NewPipe Extractor <br> Video Resolvers]:::external
-        TG[Telegram Client <br> Channel & Chats Streamer]:::external
-        GD[Google Drive Client <br> Cloud Streaming WIP]:::external
-        Lyrics[LRCLIB API <br> Synced LRC Retrieval]:::external
-        Deezer[Deezer API <br> Artist Art Retrieval]:::external
-        AI[Generative AI <br> Gemini / DeepSeek / OpenAI]:::external
-    end
-
-    %% Audio Outputs
-    Spk[Device Speakers / Bluetooth]:::external
-    AA[Android Auto]:::external
-    Cast[Chromecast Device]:::external
-    Wear[Wear OS Companion]:::external
-
-    %% Connections
-    UI <-->|M3 State / Gestures| VM
-    VM <-->|StateFlow / Events| QM
-    QM <-->|Query / Persist| Data_Layer
-    QM <-->|Fetch Streams & Data| Network_Providers
+> **Warning**    
+ > This app is in the beta stage, so it may have many bugs and make it crash. If you find any bugs,      
+> please create an issue or contact me via email or Discord server.   
+> Because of depending on YouTube Music, the player error will happen and it's normally, please don't ask me about the stable state of this app.
     
-    MS <-->|Queue Management| QM
-    MS <-->|Core Controls| Exo
-    Exo <-->|Raw Decoders| FFmpeg
-    Exo <-->|DSP Effects| EQ
-    Data_Layer <-->|Local Media Files| Exo
-    Network_Providers -->|Media Streams| Exo
+## Screenshots    
+ <p align="center">          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/01.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/02.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/03.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/04.png?raw=true" width="200" /> </p> <p align="center">          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/05.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/06.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/07.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/08.png?raw=true" width="200" /> </p> <p align="center">          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/09.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/10.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/11.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/12.png?raw=true" width="200" /> </p> <p align="center">          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/13.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/14.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/15.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/16.png?raw=true" width="200" /> </p> <p align="center">          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/17.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/18.png?raw=true" width="200" /> </p> <p align="center">  
+   <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/19.png?raw=true" width="800" />  
+</p>
 
-    EQ -->|Stereo Output| Spk
-    MS <-->|Session / Integration| AA
-    MS <-->|Session / Stream| Cast
-    MS <-->|Sync Watch Queue| Wear
-```
+ #### More [screenshots](https://photos.app.goo.gl/AbieoXG5ctDrpwzp7) here.
+ 
+ ## Data    
+- This app uses hidden API from YouTube Music with some tricks to get data from YouTube Music.    
+- Use Spotify Web API and some tricks to get Spotify Canvas and Lyrics    
+- Thanks to [InnerTune](https://github.com/z-huang/InnerTune/) for the idea to get data from YouTube Music. This repo is my inspiration to create this app.    
+- Special thanks to [SmartTube](https://github.com/yuliskov/SmartTube). This repo help me to extract the streaming URL of YouTube Music.    
+- My app is using [SponsorBlock](https://sponsor.ajay.app/) to skip sponsor in YouTube videos.    
+- ReturnYouTubeDislike for getting information on votes 
+- Main lyrics data from SimpMusic Lyrics
+- Alternative lyrics data from LRCLIB. More information [LRCLIB](https://lrclib.net/)    
+ 
+ ## Privacy    
+ SimpMusic doesn't have any tracker or third-party server for collecting user data in FOSS version. If YouTube      
+logged-in users enable "Send back to Google" feature, SimpMusic only uses YouTube Music Tracking API to send listening history and listening record of video to Google for better recommendations and      
+supporting artist or YouTube Creator (For API reference,      
+see [this](https://github.com/maxrave-dev/SimpMusic/blob/main/core/service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmusicscraper/Ytmusic.kt)).
 
----
+We collect crash data in the Full version to improve the app.
+   
+## Full or FOSS version
+I use [Sentry](http://sentry.io) crashlytics to catch all crashes in the Full version. [Sentry](https://github.com/getsentry/sentry) is the open-source project.
+ If you don't want to be collected crash data, you must use FOSS version.
+ 
+## Desktop app
 
-## 🎨 UI/UX Excellence: A Tribute to PixelPlayer
+### Which file should I download?
+- For Windows: Download the `.msix` package and run `install.bat` to install.
+- For macOS: Download the file with extension `.dmg`.
+- For Linux: Download the file with extension `.AppImage` (all Linux distributions)
 
-Pixel Music's high-fidelity interface is proudly inspired by and built upon the open-source aesthetic foundation of **[PixelPlayer](https://github.com/theovilardo)**. 
+### Log in guide: https://www.simpmusic.org/blogs/en/how-to-log-in-on-desktop-app
+#### Discord login guide: https://gist.github.com/MarvNC/e601f3603df22f36ebd3102c501116c6
 
-> [!NOTE]
-> We extend our deepest credit and gratitude to **[PixelPlayer](https://github.com/theovilardo/PixelPlayer)** (crafted by **Theo Vilardo**) for redefining what a native Android application can look like. 
+### Some limitations on Desktop app:
+- Some Linux distributions may have stability issues (upstream JetBrains issue).
+- ARM64 on Windows and Linux: use the x64 build.
 
-Key UI/UX visual paradigms adopted from PixelPlayer include:
-* **Dynamic Material You Theming:** High-precision HSL color extraction from album artwork that smoothly updates the player, bottom sheets, sliders, and navigation bar to match the mood of the current track.
-* **Fluid Micro-Animations:** Seamless screen Transitions, predictive back-swipe handling, physics-based scroll bars, and springy gesture-driven mini-players.
-* **Premium Expressive Sliders:** Custom smooth-corner sliders and elegant volume control sheets that respond naturally to user touch.
-* **State-of-the-Art Widgets:** Material 3 Glance home-screen widgets providing deep in-context customization and interactive controls directly from your launcher.
+Please report issues on our Discord server if you find any bugs.
+ 
+## Translation    
+[![Crowdin](https://badges.crowdin.net/simpmusic/localized.svg)](https://crowdin.com/project/simpmusic)
+<br/>
+You can help me translate this app into your language by using Crowdin [SimpMusic on Crowdin](https://crowdin.com/project/simpmusic)    
+ #### Special thanks to all translators on Crowdin ❤️    
+ ## FAQ    
+ #### 1. Wrong Lyrics?    
+ Lyrics are provided by LRCLIB and other sources. Sometimes lyrics may not match perfectly with the YouTube `videoId` parameter. So I need to use some "String Matcher" and "Duration" to search lyrics. So sometimes, some songs or videos get the wrong lyrics.    
+    
+#### 2. Why the name or brand is "SimpMusic"?    
+ Simply, because I love the name. It's a combination of 'Simple' and 'Music'. But SimpMusic is not a simple app, it's all you need for a powerful music streaming app.    
+  
+#### More FAQ, join [my Discord channel](https://discord.com/channels/1136988323819298856/1349800418745778196)  
 
----
+## Contributing
 
-## ✨ Exhaustive Features List
+Contributions are welcome — the full guide lives in [CONTRIBUTING.md](CONTRIBUTING.md). The short version:
 
-### 🎵 1. Premium Audio Architecture
-* **Advanced Media3 Engine:** Powered by Android's modern `androidx.media3.exoplayer` framework with customized caching pipelines.
-* **FFmpeg Decoding Extension:** Native FFmpeg decoding libraries packed directly into the APK, enabling full compatibility for high-resolution formats like lossless **FLAC**, ALAC, WAV, APE, OPUS, OGG, and legacy MP3.
-* **Professional 10-Band Equalizer:** High-fidelity hardware equalizer built in, including custom presets (Bass Booster, Vocal, Treble, Classical, etc.), bass boost, spatial virtualizer, and loudness enhancer.
-* **Smart Volume Normalization:** Integration of EBU R128 loudness normalization algorithm to keep volume levels perfectly consistent across all local and streaming sources.
-* **Seamless Audio Transitions:** Fully configurable crossfade (0s - 15s) and gapless playback engines to remove irritating pauses between tracks.
+1. **Start from an issue.** Every PR needs an accepted issue behind it — open one first so the change is agreed before the code exists.
+2. **Fork and branch from `dev`** (`main` tracks releases), and fill in the whole PR template — one checkbox is machine-checked.
+3. **AI policy.** AI-*assisted* work is welcome; AI-*driven* work is not:
+   - A human must have written or personally reviewed **every line** and be able to answer review comments about it.
+   - Unattended agent submissions (Jules, Devin, and friends) are **closed automatically** by the triage bot, on sight.
+   - Commits carrying AI co-author trailers (`Co-Authored-By: Claude/Copilot/…`) or "Generated with …" markers are rejected the same way — squash them out first.
+   - Repeat offenders are blocked.
+4. **Translations** go through [Crowdin](https://crowdin.com/project/simpmusic), never PRs editing the string files directly.
 
-### 🌐 2. Ultimate Hybrid Streaming Capabilities
-* **Unofficial YouTube Music Client:** Search the entire YouTube Music catalog, stream audio in high quality, and access curated mixes without advertisements.
-* **Secure Account Synchronization:** Securely sign into your YouTube Music account via a premium WebView container to sync your liked tracks, custom playlists, and subscribed artists.
-* **Telegram Audio Pipeline:** Connect your Telegram account to directly stream and catalog music uploaded to your channels, chats, and saved messages.
-* **Google Drive Integration (WIP):** Stream high-resolution personal audio libraries directly from cloud folders without taking up local storage.
-* **Deezer Artist Artwork:** Dynamic querying of the Deezer API to auto-fetch high-quality cover art and backgrounds for all cataloged artists.
+## Legal Disclaimer & Terms of Use
 
-### 🎤 3. Real-Time Lyrics Pipeline
-* **High-Precision LRC Engine:** Automated lyrics fetching using the LRCLIB API to display fully synchronized, scrolling lyrics.
-* **Manual Lyrics Offset Search:** Refine synchronization timing offsets (millisecond granularity) if the text does not line up perfectly with the audio.
-* **Offline Caching:** Lyrics are cached in the local Room database to ensure synchronization is preserved even when offline.
-* **Live Translation & Romanization:** Translate foreign lyrics on the fly or view Romanized versions for easier listening (inspired by ArchiveTune's lyrics workflow).
+### 1. 100% Free, Open-Source & Strictly Non-Commercial
+SimpMusic is a fully open-source project (FOSS) created purely for educational purposes and personal use. **We do not sell this application, nor do we monetize it in any way.** There are no advertisements, no premium features, no subscriptions, and no hidden fees within the app. This project has absolutely no commercial value or financial intent. 
 
-### 🧠 4. Generative AI Playlists
-* **AI Music Assistant:** Feed custom prompts (e.g., *"Make a high-intensity workout mix of synthwave and phonk"* or *"A rainy Sunday morning acoustic playlist"*) to generate highly personalized listening queues.
-* **Multiple Model Support:** Integrates with Google Gemini, DeepSeek, OpenAI, and custom API proxies to let you choose your favorite LLM backend.
+### 2. A Custom Browser with Content Filtering
+SimpMusic acts strictly as a specialized, third-party web browser and client. It simply parses the publicly available website content and APIs of YouTube and YouTube Music, rendering them in a custom user interface. The ad-free experience it provides is fundamentally no different from using a standard web browser (like Chrome, Firefox, or Brave) equipped with a common ad-blocking extension (such as uBlock Origin). 
 
-### 📲 5. Connectivity & Companion Ecosystem
-* **Full Android Auto Support:** Fully compliant Android Auto integration leveraging Media3's robust `MediaLibraryService` for safe, simplified driving interfaces.
-* **Chromecast Integration:** Cast local files and streaming media seamlessly to smart TVs, Chromecast dongles, and Nest speakers.
-* **Wear OS Companion App:** High-performance Wear OS client that supports independent watch playback, queue transfers, local offline watch caching, and remote control of your phone's player.
-* **Audiophile Statistics Hub:** Tracks listening history, daily playing times, favorite genres, most-played artists, and scrobbles natively to **Last.fm** and **ListenBrainz**.
+### 3. Support Content Creators
+We deeply respect the hard work of artists, musicians, and content creators. **We strongly encourage all users to subscribe to [YouTube Premium](https://www.youtube.com/premium).** Purchasing a Premium subscription is the best way to financially support the creators you listen to and ensure the continued growth of the platform. SimpMusic is built as a proof-of-concept for developers and enthusiasts, not to harm creators' revenues.
 
----
+### 4. No Hosting of Copyrighted Material
+We do not host, upload, distribute, or store any audio, video, or copyrighted media files on our own servers. All content accessed through this application is stored entirely on Google's/YouTube's servers and remains the property of their respective copyright owners. The app merely acts as a conduit to stream publicly accessible links.
 
-## 🛠️ High-Performance Technology Stack
+### 5. User Responsibility & Legal Contact
+The software is provided "AS IS", without warranty of any kind. The developers of SimpMusic do not encourage or condone piracy. Users are solely responsible for ensuring their usage of this app complies with their local copyright laws and the Terms of Service of the platforms they access. 
 
-Pixel Music is built using cutting-edge Android development technologies:
+Because we do not host any media files, we cannot process DMCA takedown requests for audio or video content. However, if you represent a copyright holder or have legal concerns regarding the open-source code itself, please contact us via email at: **ndtminh2608@gmail.com**
 
-| Dependency / Layer | Description & Role |
-|:---|:---|
-| **Core Language** | 100% Kotlin with JVM 21 target |
-| **UI Framework** | Jetpack Compose (Declarative UI) with Compose BOM |
-| **Design Guideline** | Material Design 3 (M3 Expressive UI components) |
-| **Media Player** | Jetpack Media3 (ExoPlayer + Session + UI + Transformer) |
-| **Audio Processing** | ExoPlayer FFmpeg & MIDI extensions, EBU R128 normalization |
-| **Database** | Room SQLite with incremental Kotlin Symbol Processing (KSP) |
-| **Dependency Injection** | Dagger Hilt (Android and WorkManager modules) |
-| **Network Core** | Ktor Client (Content Negotiation + Brotli encoding) & OkHttp |
-| **API Parsing** | Retrofit + Gson + Kotlinx Serialization |
-| **Image Loading** | Coil (Compose Image loading with database-backed LRU caching) |
-| **Async Operations** | Kotlin Coroutines & Flow (StateFlow / SharedFlow architecture) |
-| **Background Tasks** | WorkManager (scheduled backups, network refreshes, sync workers) |
-| **Metadata Tagging** | TagLib / JAudioTagger fallback integration |
-| **Widgets Framework** | Androidx Glance (Material 3 AppWidgets) |
+  ## Contribute
+We're looking for more contributors, all contributions are welcome!
+See our [CODE OF CONDUCT](https://github.com/maxrave-dev/SimpMusic/blob/main/CODE_OF_CONDUCT.md)
 
----
+Thanks for all my contributors:
 
-## 🚀 Sideloading & Getting Started
+<a href="https://github.com/maxrave-dev/SimpMusic/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=maxrave-dev/SimpMusic" />
+</a>
 
-### Prerequisites for Compiling
-* **Android Studio Ladybug (2024.2.1)** or newer.
-* **Android SDK 34** or higher (Target SDK is 37).
-* **JDK 21** configured in your compilation environment.
-* **keystore.properties** & **vz-pixelmusic.jks** (for release builds).
+ ## Showcase
+This project is following clean architecture and MVVM pattern (in UI, app module).
 
-### Easy Compile Steps
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ianshulyadav/PixelMusic.git
-   cd PixelMusic/PixelPlayer
-   ```
-2. **Open the project in Android Studio:**
-   * Android Studio will sync Gradle dependencies automatically.
-3. **Configure API Keys (Optional but recommended):**
-   * If you wish to use the AI Playlist generation features, insert your respective Gemini / DeepSeek API keys inside `local.properties`.
-4. **Compile the APK:**
-   * Run the `:app:assembleDebug` or `:app:assembleRelease` Gradle tasks.
-   * If compiling a release version, configure `pixelmusic.enableAbiSplits=true` in `gradle.properties` to reduce the final APK size significantly via CPU splits (arm64-v8a / armeabi-v7a).
+ ### Dependencies graph
+  <p float="left">        
+  <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/dependencies_graph.svg?raw=true" width="800"> 
+  </p>
 
----
+ ## Support & Donations 
+ #### Special thanks to all supporter ❤️    
+ <div align="left"> 
+ <a href="https://simpmusic.org/"><img alt="Visit the website" height="50" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/documentation/website_vector.svg"></a> &nbsp;        
+<a href="https://discord.gg/Rq5tWVM9Hg"><img alt="Discord Server" height="50" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/social/discord-plural_vector.svg"></a> &nbsp;        
+<br> <a href="https://www.buymeacoffee.com/maxrave"><img alt="Buy me a Coffee" height="50" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/donate/buymeacoffee-singular_vector.svg"></a> &nbsp;        
+<a href="https://liberapay.com/maxrave/"><img alt="liberapay" height="50"        
+src="https://raw.githubusercontent.com/liberapay/liberapay.com/master/www/assets/liberapay/logo-v2_black-on-yellow.svg"></a> 
+</div>
+    
+ ### MOMO or Vietnamese banking    
+ <p float="left">        
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/52770992.jpg?raw=true" width="300"> 
+ </p>
 
-## ⚖️ Disclaimer & Legal Notice
+## SimpMusic is sponsored by:
+<br />
+<a href="https://vercel.com/oss">
+  <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
+</a>
+<br />
+<br />
+<a href="https://crowdin.com">
+<img src="https://support.crowdin.com/assets/logos/plate/png/crowdin-logo-with-plate.png" width="300"/>
+</a>
+<br>
+<a href="https://sentry.io">
+<img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/sentry.svg?raw=true" width="300"/>
+</a>
+<br>
+<br>
 
-Pixel Music is an independent, community-driven third-party audio player and client. It is **not** associated with Google LLC, YouTube Music, Deezer, Telegram, or any of their parent companies. 
+Crowdin and Sentry both have a free enterprise plan for Open-source projects. Follow the URLs: 
+- [Open Source License Request Form | Crowdin](https://crowdin.com/page/open-source-project-setup-request)
+- [Sentry for Open Source | Sentry](https://sentry.io/for/open-source/)
 
-* **No Media Hosting:** Pixel Music does not host, upload, or store copyrighted music files. It operates strictly as an interface to scan local device storage or stream media directly from public, public-facing, or user-authenticated APIs (such as YouTube Music's InnerTube API and Telegram's channels).
-* **Fair Use & API Usage:** This software is created solely for personal research, educational, and fair-use purposes. The user is entirely responsible for ensuring their usage aligns with their local copyright laws and YouTube/Telegram Terms of Service.
-* **No Ad-Blocking Guarantee:** While Pixel Music focuses on providing a clean listening environment, it does not guarantee permanent bypasses or modifications to commercial third-party platform conditions.
-* **No Commercialization:** Pixel Music is fully open-source and non-commercial. Selling, distributing, or publishing this application on commercial marketplaces (like the Google Play Store) is strictly prohibited by upstream licensing constraints and fair-use limitations.
+Check out the Vercel open-source program:
+- https://vercel.com/open-source-program
+  
+This project is tested with BrowserStack
+- Checkout BrowserStack now: https://www.browserstack.com/
 
----
+*This project is a part of SimpMusic.org Open-source project by me [maxrave-dev](https://github.com/maxrave-dev)*
 
-## 📄 License
-
-This project is licensed under a **Proprietary License**. 
-
-```text
-Copyright (c) 2026 Theo Vilardo
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to study, review, and use the Software for personal, non-commercial purposes only, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-Commercial use, including but not limited to the sale, redistribution, or publishing of the Software (or any derivative work) on the Google Play Store or any other commercial platform, is strictly prohibited.
-
-The right to sell, sublicense, and distribute the Software for profit is reserved exclusively by the author, Theo Vilardo.
-```
-
-To review the full license stipulations, please check the [LICENSE](LICENSE) file.
+<!-- GitAds-Verify: 9788276LHF131ESPL12SWLJ8LACOJE89 -->
