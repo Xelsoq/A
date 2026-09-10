@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import com.xelsoq.musicfy.data.model.Song
 import com.xelsoq.musicfy.data.preferences.QuickPicksDisplayMode
+import com.xelsoq.musicfy.presentation.components.snapping.LazyGridSnapLayoutInfoProvider
 import kotlin.math.absoluteValue
 
 /** Matches ArchiveTune `ListItemHeight`. */
@@ -282,10 +284,21 @@ private fun QuickPicksHorizontalList(
         val widthFactor = if (maxWidth * 0.475f >= 320.dp) 0.475f else 0.9f
         val itemWidth = maxWidth * widthFactor
         val gridState = rememberLazyGridState()
+        // Matches ArchiveTune: items snap to a centered position instead of
+        // free-scrolling, using the same positionInLayout formula.
+        val snapLayoutInfoProvider = remember(gridState, widthFactor) {
+            LazyGridSnapLayoutInfoProvider(
+                lazyGridState = gridState,
+                positionInLayout = { layoutSize, itemSize ->
+                    layoutSize * widthFactor / 2f - itemSize / 2f
+                }
+            )
+        }
 
         LazyHorizontalGrid(
             state = gridState,
             rows = GridCells.Fixed(4),
+            flingBehavior = rememberSnapFlingBehavior(snapLayoutInfoProvider),
             contentPadding = PaddingValues(horizontal = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(0.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),

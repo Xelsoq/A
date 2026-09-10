@@ -253,6 +253,11 @@ fun HomeScreen(
         playerViewModel.stablePlayerState.map { it.currentSong }
     }.collectAsStateWithLifecycle(initialValue = null)
 
+    // Real playback state for the Quick Picks "now playing" badge (was previously hardcoded).
+    val isPlayingNow by remember(playerViewModel.stablePlayerState) {
+        playerViewModel.stablePlayerState.map { it.isPlaying }
+    }.collectAsStateWithLifecycle(initialValue = false)
+
     // 3) Observe shuffle state for sync
     val isShuffleEnabled by remember(playerViewModel.stablePlayerState) {
         playerViewModel.stablePlayerState
@@ -394,6 +399,7 @@ fun HomeScreen(
                                 navController.navigateSafely(Screen.QuickPicksAll.route)
                             },
                             currentSongId = currentSong?.id,
+                            isPlaying = isPlayingNow,
                             displayMode = quickPicksDisplayMode
                         )
                     }
