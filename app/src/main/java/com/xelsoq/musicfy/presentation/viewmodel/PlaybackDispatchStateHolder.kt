@@ -745,18 +745,56 @@ class PlaybackDispatchStateHolder @Inject constructor(
         songsToPlay: List<Song>,
         startSongId: String,
         playlistId: String?
-    ): PreparedPlaybackQueueSegments = withContext(Dispatchers.Default) {
+    ): PreparedPlaybackQueueSegments = withContext(Dispatchers.IO) {
         val currentIndex = songsToPlay
             .indexOfFirst { it.id == startSongId }
             .takeIf { it >= 0 }
             ?: 0
 
+        // Pre-resolve cloud/youtube URIs off the main thread so track changes do not
+        // block inside ResolvingDataSource (which previously caused sluggish skips).
+        suspend fun itemFor(song: Song): MediaItem {
+            val resolved = buildResolvedPlaybackMediaItem(song)
+            return if (playlistId == null) {
+                resolved
+            } else {
+                val mergedExtras = android.os.Bundle(resolved.mediaMetadata.extras ?: android.os.Bundle()).apply {
+                    putString("playlistId", playlistId)
+                }
+                resolved.buildUpon()
+                    .setMediaMetadata(
+                        resolved.mediaMetadata.buildUpon()
+                            .setExtras(mergedExtras)
+                            .build()
+                    )
+                    .build()
+            }
+        }
+
+        // Resolve the next few tracks first (most important for skip feel), then the rest.
+        val priorityAfter = (currentIndex + 1 until minOf(songsToPlay.size, currentIndex + 4)).toList()
+        val priorityBefore = (maxOf(0, currentIndex - 1) until currentIndex).toList()
+        val priority = (priorityAfter + priorityBefore).distinct()
+        val resolvedPriority = priority.associateWith { idx -> itemFor(songsToPlay[idx]) }
+
         val beforeCurrent = List(currentIndex) { index ->
-            buildPlaybackMediaItem(songsToPlay[index], playlistId)
+            resolvedPriority[index] ?: buildPlaybackMediaItem(songsToPlay[index], playlistId)
         }
         val afterStartIndex = currentIndex + 1
         val afterCurrent = List((songsToPlay.size - afterStartIndex).coerceAtLeast(0)) { offset ->
-            buildPlaybackMediaItem(songsToPlay[afterStartIndex + offset], playlistId)
+            val index = afterStartIndex + offset
+            resolvedPriority[index] ?: buildPlaybackMediaItem(songsToPlay[index], playlistId)
+        }
+
+        // Warm remaining youtube URIs in background without blocking queue attach
+        cb.scope.launch(Dispatchers.IO) {
+            songsToPlay.forEachIndexed { index, song ->
+                if (index == currentIndex || index in priority) return@forEachIndexed
+                val scheme = song.contentUriString.substringBefore("://", missingDelimiterValue = "")
+                if (scheme == "youtube" || scheme == "telegram" || scheme == "gdrive") {
+                    runCatching { dualPlayerEngine.resolveCloudUri(android.net.Uri.parse(song.contentUriString)) }
+                }
+            }
         }
 
         PreparedPlaybackQueueSegments(

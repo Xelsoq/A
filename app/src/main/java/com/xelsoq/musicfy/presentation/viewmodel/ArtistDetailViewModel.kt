@@ -147,7 +147,7 @@ class ArtistDetailViewModel @Inject constructor(
                             if (popularSongs.isNotEmpty()) {
                                 add(
                                     ArtistAlbumSection(
-                                        albumId = browseId.hashCode().toLong(),
+                                        albumId = -(18_000_000_000_000L + kotlin.math.abs(browseId.hashCode().toLong())),
                                         title = "Popular",
                                         year = null,
                                         albumArtUriString = artistItem.thumbnail,

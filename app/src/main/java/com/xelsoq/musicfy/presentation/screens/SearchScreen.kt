@@ -1221,11 +1221,12 @@ fun SearchResultsList(
                     count = itemsForSection.size,
                     key = { index ->
                         val item = itemsForSection[index]
+                        // Include filter + index so duplicate YTM ids (same title hash) never crash LazyColumn
                         when (item) {
-                            is SearchResultItem.SongItem -> "song_${item.song.id}"
-                            is SearchResultItem.AlbumItem -> "album_${item.album.id}"
-                            is SearchResultItem.ArtistItem -> "artist_${item.artist.id}"
-                            is SearchResultItem.PlaylistItem -> "playlist_${item.playlist.id}_${index}"
+                            is SearchResultItem.SongItem -> "song_${filterType.name}_${item.song.id}_$index"
+                            is SearchResultItem.AlbumItem -> "album_${filterType.name}_${item.album.id}_$index"
+                            is SearchResultItem.ArtistItem -> "artist_${filterType.name}_${item.artist.id}_$index"
+                            is SearchResultItem.PlaylistItem -> "playlist_${filterType.name}_${item.playlist.id}_$index"
                         }
                     },
                     contentType = { index ->

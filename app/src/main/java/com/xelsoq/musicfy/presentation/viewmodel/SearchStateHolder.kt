@@ -210,7 +210,7 @@ class SearchStateHolder @Inject constructor(
 
                     artistsResult?.items?.filterIsInstance<ArtistItem>()?.forEach { a ->
                         run {
-                            val longId = ytArtistId(a.title)
+                            val longId = ytArtistIdFromChannel(a.id, a.title)
                             if (a.id.isNotBlank()) {
                                 artistIdMap[longId] = a.id
                             }
@@ -228,7 +228,7 @@ class SearchStateHolder @Inject constructor(
                     }
 
                     albumsResult?.items?.filterIsInstance<AlbumItem>()?.forEach { a ->
-                        val longId = ytAlbumId(a.title)
+                        val longId = ytAlbumId(a.browseId, a.title)
                         albumIdMap[longId] = a.browseId
                         items.add(
                             SearchResultItem.AlbumItem(
@@ -270,7 +270,7 @@ class SearchStateHolder @Inject constructor(
             SearchFilterType.ARTISTS -> {
                 val result = YouTube.search(query, YouTube.SearchFilter.FILTER_ARTIST).getOrNull()
                 result?.items?.filterIsInstance<ArtistItem>()?.forEach { a ->
-                    val longId = ytArtistId(a.title)
+                    val longId = ytArtistIdFromChannel(a.id, a.title)
                     if (a.id.isNotBlank()) {
                         artistIdMap[longId] = a.id
                     }
@@ -289,7 +289,7 @@ class SearchStateHolder @Inject constructor(
             SearchFilterType.ALBUMS -> {
                 val result = YouTube.search(query, YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
                 result?.items?.filterIsInstance<AlbumItem>()?.forEach { a ->
-                    val longId = ytAlbumId(a.title)
+                    val longId = ytAlbumId(a.browseId, a.title)
                     albumIdMap[longId] = a.browseId
                     items.add(
                         SearchResultItem.AlbumItem(
@@ -323,7 +323,17 @@ class SearchStateHolder @Inject constructor(
                 }
             }
         }
-        return items
+        // Deduplicate by media id so LazyColumn keys never collide within a section
+        val seen = LinkedHashSet<String>()
+        return items.filter { item ->
+            val key = when (item) {
+                is SearchResultItem.SongItem -> "s:${item.song.id}"
+                is SearchResultItem.AlbumItem -> "a:${item.album.id}"
+                is SearchResultItem.ArtistItem -> "ar:${item.artist.id}"
+                is SearchResultItem.PlaylistItem -> "p:${item.playlist.id}"
+            }
+            seen.add(key)
+        }
     }
 
     fun updateSearchFilter(filterType: SearchFilterType) {
@@ -403,6 +413,13 @@ class SearchStateHolder @Inject constructor(
     private fun ytArtistId(name: String): Long =
         -(17_000_000_000_000L + kotlin.math.abs(name.lowercase().hashCode().toLong()))
 
-    private fun ytAlbumId(name: String): Long =
-        -(16_000_000_000_000L + kotlin.math.abs(name.lowercase().hashCode().toLong()))
+    private fun ytAlbumId(browseId: String, title: String = ""): Long {
+        val seed = browseId.ifBlank { title }.lowercase()
+        return -(16_000_000_000_000L + kotlin.math.abs(seed.hashCode().toLong()))
+    }
+
+    private fun ytArtistIdFromChannel(channelId: String, title: String): Long {
+        val seed = channelId.ifBlank { title }.lowercase()
+        return -(17_000_000_000_000L + kotlin.math.abs(seed.hashCode().toLong()))
+    }
 }
