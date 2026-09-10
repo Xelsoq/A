@@ -2,6 +2,8 @@ package com.xelsoq.musicfy.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
@@ -142,8 +144,8 @@ fun HomeGradientTopBar(
         actions = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(end = 14.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(end = 12.dp)
             ) {
                 GlassChip(
                     onClick = onTelegramClick,
@@ -153,8 +155,9 @@ fun HomeGradientTopBar(
                     modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
-                         imageVector = Icons.Rounded.Cloud,
-                         contentDescription = stringResource(R.string.topbar_cd_cloud_streaming)
+                        imageVector = Icons.Rounded.Cloud,
+                        contentDescription = stringResource(R.string.topbar_cd_cloud_streaming),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
                 GlassChip(
@@ -166,7 +169,8 @@ fun HomeGradientTopBar(
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.round_newspaper_24),
-                        contentDescription = stringResource(R.string.topbar_cd_changelog)
+                        contentDescription = stringResource(R.string.topbar_cd_changelog),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
                 GlassChip(
@@ -178,7 +182,8 @@ fun HomeGradientTopBar(
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.rounded_settings_24),
-                        contentDescription = stringResource(R.string.common_settings)
+                        contentDescription = stringResource(R.string.common_settings),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -202,6 +207,7 @@ private fun GlassChip(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     content: @Composable RowScope.() -> Unit
 ) {
+    val isIconOnly = contentPadding == PaddingValues(0.dp)
     Surface(
         onClick = onClick,
         modifier = modifier,
@@ -209,11 +215,21 @@ private fun GlassChip(
         color = containerColor,
         contentColor = contentColor
     ) {
-        Row(
-            modifier = Modifier.padding(contentPadding),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            content = content
-        )
+        // Icon-only circular chips: fill + center so glyphs aren't offset/crooked.
+        // Label chips (logo + name): wrap content with horizontal padding.
+        Box(
+            modifier = if (isIconOnly) {
+                Modifier.fillMaxSize()
+            } else {
+                Modifier.padding(contentPadding)
+            },
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                content = content
+            )
+        }
     }
 }

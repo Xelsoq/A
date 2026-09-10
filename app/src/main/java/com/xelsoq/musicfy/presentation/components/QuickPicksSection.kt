@@ -161,30 +161,26 @@ private fun QuickPicksHeroCarousel(
         ) { index ->
             val song = songs[index]
             val isActive = song.id == currentSongId
-            val shape = MaterialTheme.shapes.extraLarge
+            // Large continuous radius — matches ArchiveTune hero cards; avoid
+            // double-clip (parent + SmartImage) which produced square cut borders.
+            val shape = RoundedCornerShape(28.dp)
 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(shape)
-                    .border(
-                        BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
-                        ),
-                        shape
-                    )
                     .focusable()
                     .combinedClickable(
                         onClick = { onSongClick(song) },
                         onLongClick = { onSongLongClick?.invoke(song) }
                     )
             ) {
+                // Image fills the already-clipped box (no extra shape on SmartImage)
                 SmartImage(
                     model = song.albumArtUriString,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    shape = shape,
+                    shape = androidx.compose.ui.graphics.RectangleShape,
                     modifier = Modifier.fillMaxSize()
                 )
 
@@ -197,6 +193,19 @@ private fun QuickPicksHeroCarousel(
                                 0.48f to Color.Black.copy(alpha = 0.08f),
                                 1f to Color.Black.copy(alpha = 0.84f)
                             )
+                        )
+                )
+
+                // Border drawn INSIDE the clip so edges are never cut by the carousel
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(
+                            BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+                            ),
+                            shape
                         )
                 )
 
