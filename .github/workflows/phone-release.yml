@@ -65,16 +65,47 @@ jobs:
             "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose "$apk"
           done
 
-      - name: Send Phone split APKs to Telegram
+      - name: Show APK sizes
         run: |
-          BOT_TOKEN="8803306880:AAGgsSBmAgJZnkAtj7gn8aFK1f9xgWxnEiE"
-          CHAT_ID="-1004388221744"
-          for apk in \
-            app/build/outputs/apk/release/app-arm64-v8a-release.apk \
-            app/build/outputs/apk/release/app-armeabi-v7a-release.apk
-          do
-            curl -sS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
-              -F chat_id="${CHAT_ID}" \
-              -F document=@"${apk}" \
-              -F caption="Musicfy release build ($(basename "$apk")) — commit ${GITHUB_SHA::7}"
-          done
+          ls -lh app/build/outputs/apk/release/app-arm64-v8a-release.apk
+          ls -lh app/build/outputs/apk/release/app-armeabi-v7a-release.apk
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Telethon
+        run: pip install telethon
+
+      - name: Send Phone split APKs to Telegram (MTProto, up to 2GB)
+        run: |
+          python3 - <<'PYEOF'
+          import asyncio
+          from telethon import TelegramClient
+
+          API_ID = 36777223
+          API_HASH = "e8f2dedd6db84f864885d087b811db37"
+          BOT_TOKEN = "8803306880:AAGgsSBmAgJZnkAtj7gn8aFK1f9xgWxnEiE"
+          CHAT_ID = -1004388221744
+
+          apks = [
+              "app/build/outputs/apk/release/app-arm64-v8a-release.apk",
+              "app/build/outputs/apk/release/app-armeabi-v7a-release.apk",
+          ]
+
+          async def main():
+              client = TelegramClient("bot_session", API_ID, API_HASH)
+              await client.start(bot_token=BOT_TOKEN)
+              for apk in apks:
+                  print(f"Enviando {apk}...")
+                  await client.send_file(
+                      CHAT_ID,
+                      apk,
+                      caption=f"Musicfy release build ({apk.split('/')[-1]})",
+                      force_document=True,
+                  )
+              await client.disconnect()
+
+          asyncio.run(main())
+          PYEOF
