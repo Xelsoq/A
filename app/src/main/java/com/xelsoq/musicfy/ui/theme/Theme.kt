@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -106,6 +108,7 @@ val LightColorScheme = lightColorScheme(
     onError = MusicfyWhite
 )
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MusicfyTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -138,10 +141,16 @@ fun MusicfyTheme(
     )
 
     CompositionLocalProvider(LocalMusicfyDarkTheme provides darkTheme) {
-        MaterialTheme(
+        // MaterialExpressiveTheme (not the plain MaterialTheme) is required here: the
+        // Quick Picks CARD carousel uses HorizontalCenteredHeroCarousel + maskClip/maskBorder,
+        // which rely on an expressive MotionScheme to compute the per-item mask/parallax
+        // shape. Without it, items clip to a plain square instead of the intended rounded,
+        // morphing shape — matches ArchiveTune's ArchiveTuneTheme setup.
+        MaterialExpressiveTheme(
             colorScheme = finalColorScheme,
             typography = Typography,
             shapes = Shapes,
+            motionScheme = MotionScheme.expressive(),
             content = content
         )
     }
