@@ -10,28 +10,30 @@ import androidx.lifecycle.viewModelScope
 import com.xelsoq.musicfy.R
 import com.xelsoq.musicfy.data.model.Artist
 import com.xelsoq.musicfy.data.model.Song
+import com.xelsoq.musicfy.data.remote.youtube.toNativeSong
 import com.xelsoq.musicfy.data.repository.ArtistImageRepository
 import com.xelsoq.musicfy.data.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
+import unshoo.ianshulyadav.pixelmusic.innertube.models.AlbumItem
+import unshoo.ianshulyadav.pixelmusic.innertube.models.ArtistItem
+import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
 import javax.inject.Inject
 
-/**
- * Holds the full UI state for ArtistDetailScreen.
- *
- * [effectiveImageUrl] is the resolved image to display (custom takes priority over Deezer).
- * It is updated after artist data loads and again whenever the user changes the custom image.
- */
 data class ArtistDetailUiState(
     val artist: Artist? = null,
     val songs: List<Song> = emptyList(),
@@ -62,15 +64,6 @@ class ArtistDetailViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ArtistDetailUiState())
     val uiState: StateFlow<ArtistDetailUiState> = _uiState.asStateFlow()
 
-    /**
-     * Pre-warmed color scheme for the current artist image.
-     * This is populated synchronously (from the processor's LRU/DB cache) before [uiState]
-     * marks [ArtistDetailUiState.isLoading] = false, so the screen has the correct palette
-     * on its very first composition — no flash from system colors.
-     *
-     * Consumers should read this directly instead of calling [ThemeStateHolder.getAlbumColorSchemeFlow]
-     * in order to avoid the initial-null-emission that causes the flash.
-     */
     private val _artistColorScheme = MutableStateFlow<ColorSchemePair?>(null)
     val artistColorScheme: StateFlow<ColorSchemePair?> = _artistColorScheme.asStateFlow()
 
@@ -78,14 +71,14 @@ class ArtistDetailViewModel @Inject constructor(
         savedStateHandle.getStateFlow<String?>("artistId", null)
             .onEach { idString ->
                 if (idString != null) {
-                    val artistId = idString.toLongOrNull()
-                    if (artistId != null) {
-                        loadArtistData(artistId)
-                    } else {
-                        _uiState.update { it.copy(error = context.getString(R.string.artist_detail_invalid_id), isLoading = false) }
-                    }
+                    loadArtistData(idString)
                 } else {
-                    _uiState.update { it.copy(error = context.getString(R.string.artist_detail_id_not_found), isLoading = false) }
+                    _uiState.update {
+                        it.copy(
+                            error = context.getString(R.string.artist_detail_id_not_found),
+                            isLoading = false
+                        )
+                    }
                 }
             }
             .launchIn(viewModelScope)
@@ -93,80 +86,136 @@ class ArtistDetailViewModel @Inject constructor(
 
     private var currentLoadJob: Job? = null
 
-    private fun loadArtistData(id: Long) {
+    private fun loadArtistData(artistIdStr: String) {
         currentLoadJob?.cancel()
         currentLoadJob = viewModelScope.launch {
-            Log.d("ArtistDebug", "loadArtistData: id=$id")
+            Log.d("ArtistDebug", "loadArtistData: idStr=$artistIdStr")
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val artistDetailsFlow = musicRepository.getArtistById(id)
-                val artistSongsFlow = musicRepository.getSongsForArtist(id)
+                val numericId = artistIdStr.toLongOrNull()
+                var browseId: String? = null
 
-                combine(artistDetailsFlow, artistSongsFlow) { artist, songs ->
-                    Log.d("ArtistDebug", "loadArtistData: id=$id found=${artist != null} songs=${songs.size}")
-                    artist to songs
-                }
-                    .catch { e ->
-                        _uiState.update {
-                            it.copy(
-                                error = context.getString(R.string.artist_error_loading_artist, e.localizedMessage ?: ""),
-                                isLoading = false
-                            )
+                if (artistIdStr.startsWith("UC") || artistIdStr.startsWith("LA") ||
+                    artistIdStr.startsWith("MP") || (numericId == null && artistIdStr.isNotBlank())
+                ) {
+                    browseId = artistIdStr
+                } else if (numericId != null) {
+                    SearchStateHolder.artistIdMap[numericId]?.let { browseId = it }
+                    if (browseId == null) {
+                        val localArtist = musicRepository.getArtistById(numericId).first()
+                        if (localArtist != null) {
+                            // Still try to enrich with YouTube when possible, but local
+                            // library remains the source of truth for tracks.
+                            val primaryArtistName = localArtist.name.split(
+                                ", ", " & ", " feat.", " feat ", " Feat.", " Feat ",
+                                " FT.", " FT ", " ft.", " ft "
+                            ).firstOrNull()?.trim() ?: localArtist.name
+                            // Prefer local path for local artists
+                            loadLocalArtist(numericId)
+                            return@launch
                         }
                     }
-                    .collect { (artist, songs) ->
-                        if (artist == null) {
-                            _uiState.update {
-                                it.copy(error = context.getString(R.string.artist_detail_not_found), isLoading = false)
+                }
+
+                if (browseId != null && (
+                        browseId.startsWith("UC") || browseId.startsWith("LA") ||
+                            browseId.startsWith("MP") || numericId == null
+                        )
+                ) {
+                    val artistPageResult = withContext(Dispatchers.IO) {
+                        YouTube.artist(browseId!!)
+                    }
+                    artistPageResult.onSuccess { artistPage ->
+                        val artistItem = artistPage.artist
+                        val ytSongsSection = artistPage.sections.find {
+                            it.title.contains("Songs", ignoreCase = true) ||
+                                it.title.contains("Popular", ignoreCase = true)
+                        }
+                        val popularSongs = ytSongsSection?.items
+                            ?.mapNotNull { (it as? SongItem)?.toNativeSong() }
+                            ?.take(25)
+                            .orEmpty()
+
+                        val artistModel = Artist(
+                            id = browseId.hashCode().toLong(),
+                            name = artistItem.title,
+                            songCount = popularSongs.size,
+                            imageUrl = artistItem.thumbnail
+                        )
+
+                        val albumSections = buildList {
+                            if (popularSongs.isNotEmpty()) {
+                                add(
+                                    ArtistAlbumSection(
+                                        albumId = browseId.hashCode().toLong(),
+                                        title = "Popular",
+                                        year = null,
+                                        albumArtUriString = artistItem.thumbnail,
+                                        songs = popularSongs
+                                    )
+                                )
                             }
-                            return@collect
+                            artistPage.sections.forEach { section ->
+                                section.items.filterIsInstance<AlbumItem>().forEach { album ->
+                                    SearchStateHolder.albumIdMap[album.browseId.hashCode().toLong()] =
+                                        album.browseId
+                                }
+                            }
                         }
 
-                        val albumSections = buildAlbumSections(songs)
-                        val orderedSongs = albumSections.flatMap { it.songs }
-
-                        // 1) Resolve effective image URL (custom > Deezer, may fetch from API)
-                        val effectiveUrl = try {
-                            artistImageRepository.getEffectiveArtistImageUrl(
-                                artistId = artist.id,
-                                artistName = artist.name
-                            )
-                        } catch (e: Exception) {
-                            Log.w("ArtistDebug", "Failed to resolve effective artist image: ${e.message}")
-                            artist.effectiveImageUrl
-                        }
-
-                        // 2) Pre-warm the color scheme BEFORE emitting isLoading = false.
-                        //    getOrGenerateColorScheme checks the in-memory LRU first (≈0 ms if cached),
-                        //    then the DB cache (fast), and only generates from scratch ~on first visit.
-                        //    Either way, the scheme is ready before the screen first renders.
+                        val effectiveUrl = artistItem.thumbnail
                         val newScheme = if (!effectiveUrl.isNullOrBlank()) {
                             try {
                                 themeStateHolder.getOrGenerateColorScheme(effectiveUrl)
                             } catch (e: Exception) {
-                                Log.w("ArtistDebug", "Color scheme pre-warm failed: ${e.message}")
+                                Log.w("ArtistDebug", "Failed to warm color scheme: ${e.message}")
                                 null
                             }
                         } else null
 
-                        // 3) Atomically publish state + pre-warmed color scheme.
-                        //    Both flows update before the Compose frame runs, so no intermediate null frame.
                         _artistColorScheme.value = newScheme
                         _uiState.value = ArtistDetailUiState(
-                            artist = artist.copy(
-                                imageUrl = if (artist.customImageUri.isNullOrBlank()) effectiveUrl else artist.imageUrl
-                            ),
-                            songs = orderedSongs,
+                            artist = artistModel,
+                            songs = popularSongs,
                             albumSections = albumSections,
                             effectiveImageUrl = effectiveUrl,
                             isLoading = false
                         )
+                    }.onFailure { e ->
+                        if (numericId != null) {
+                            loadLocalArtist(numericId)
+                        } else {
+                            _uiState.update {
+                                it.copy(
+                                    error = context.getString(
+                                        R.string.artist_error_loading_artist,
+                                        e.localizedMessage ?: ""
+                                    ),
+                                    isLoading = false
+                                )
+                            }
+                        }
                     }
+                    return@launch
+                }
 
+                val id = numericId ?: run {
+                    _uiState.update {
+                        it.copy(
+                            error = context.getString(R.string.artist_detail_invalid_id),
+                            isLoading = false
+                        )
+                    }
+                    return@launch
+                }
+                loadLocalArtist(id)
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
-                        error = context.getString(R.string.artist_error_loading_artist, e.localizedMessage ?: ""),
+                        error = context.getString(
+                            R.string.artist_error_loading_artist,
+                            e.localizedMessage ?: ""
+                        ),
                         isLoading = false
                     )
                 }
@@ -174,10 +223,62 @@ class ArtistDetailViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Called from the UI when the user selects a custom image from the system photo picker.
-     * Copies the image to internal storage, persists the path to DB, and triggers palette regeneration.
-     */
+    private suspend fun loadLocalArtist(id: Long) {
+        val artistDetailsFlow = musicRepository.getArtistById(id)
+        val artistSongsFlow = musicRepository.getSongsForArtist(id)
+
+        combine(artistDetailsFlow, artistSongsFlow) { artist, songs ->
+            Log.d("ArtistDebug", "loadLocalArtist: id=$id found=${artist != null} songs=${songs.size}")
+            artist to songs
+        }
+            .catch { e ->
+                _uiState.update {
+                    it.copy(
+                        error = context.getString(
+                            R.string.artist_error_loading_artist,
+                            e.localizedMessage ?: ""
+                        ),
+                        isLoading = false
+                    )
+                }
+            }
+            .collect { (artist, songs) ->
+                if (artist == null) {
+                    _uiState.update {
+                        it.copy(
+                            error = context.getString(R.string.artist_detail_id_not_found),
+                            isLoading = false
+                        )
+                    }
+                    return@collect
+                }
+
+                val orderedSongs = songs.sortedWith(songDisplayComparator)
+                val albumSections = buildAlbumSections(orderedSongs)
+
+                val effectiveUrl = artist.effectiveImageUrl
+                val newScheme = if (!effectiveUrl.isNullOrBlank()) {
+                    try {
+                        themeStateHolder.getOrGenerateColorScheme(effectiveUrl)
+                    } catch (e: Exception) {
+                        Log.w("ArtistDebug", "Failed to warm color scheme: ${e.message}")
+                        null
+                    }
+                } else null
+
+                _artistColorScheme.value = newScheme
+                _uiState.value = ArtistDetailUiState(
+                    artist = artist.copy(
+                        imageUrl = if (artist.customImageUri.isNullOrBlank()) effectiveUrl else artist.imageUrl
+                    ),
+                    songs = orderedSongs,
+                    albumSections = albumSections,
+                    effectiveImageUrl = effectiveUrl,
+                    isLoading = false
+                )
+            }
+    }
+
     fun setCustomImage(sourceUri: Uri) {
         val artistId = _uiState.value.artist?.id ?: return
         viewModelScope.launch {

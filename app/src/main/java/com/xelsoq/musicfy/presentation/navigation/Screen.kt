@@ -35,6 +35,7 @@ sealed class Screen(val route: String) {
 
     object ArtistDetail : Screen("artist_detail/{artistId}") {
         fun createRoute(artistId: Long) = "artist_detail/$artistId"
+        fun createRoute(artistId: String) = "artist_detail/$artistId"
     }
 
     object EditTransition : Screen("edit_transition?playlistId={playlistId}") {

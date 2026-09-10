@@ -54,6 +54,8 @@ class SearchStateHolder @Inject constructor(
         private const val SEARCH_CACHE_SIZE = 100
         /** Maps synthetic album Long ids to YouTube browseIds for later album playback. */
         val albumIdMap = java.util.concurrent.ConcurrentHashMap<Long, String>()
+        /** Maps synthetic artist Long ids → YouTube channel/browse ids. */
+        val artistIdMap = java.util.concurrent.ConcurrentHashMap<Long, String>()
     }
 
     private val searchResultCache = LruCache<String, ImmutableList<SearchResultItem>>(SEARCH_CACHE_SIZE)
@@ -207,16 +209,22 @@ class SearchStateHolder @Inject constructor(
                     }
 
                     artistsResult?.items?.filterIsInstance<ArtistItem>()?.forEach { a ->
-                        items.add(
-                            SearchResultItem.ArtistItem(
-                                Artist(
-                                    id = ytArtistId(a.title),
-                                    name = a.title,
-                                    songCount = 0,
-                                    imageUrl = a.thumbnail
+                        run {
+                            val longId = ytArtistId(a.title)
+                            if (a.id.isNotBlank()) {
+                                artistIdMap[longId] = a.id
+                            }
+                            items.add(
+                                SearchResultItem.ArtistItem(
+                                    Artist(
+                                        id = longId,
+                                        name = a.title,
+                                        songCount = 0,
+                                        imageUrl = a.thumbnail
+                                    )
                                 )
                             )
-                        )
+                        }
                     }
 
                     albumsResult?.items?.filterIsInstance<AlbumItem>()?.forEach { a ->
@@ -262,10 +270,14 @@ class SearchStateHolder @Inject constructor(
             SearchFilterType.ARTISTS -> {
                 val result = YouTube.search(query, YouTube.SearchFilter.FILTER_ARTIST).getOrNull()
                 result?.items?.filterIsInstance<ArtistItem>()?.forEach { a ->
+                    val longId = ytArtistId(a.title)
+                    if (a.id.isNotBlank()) {
+                        artistIdMap[longId] = a.id
+                    }
                     items.add(
                         SearchResultItem.ArtistItem(
                             Artist(
-                                id = ytArtistId(a.title),
+                                id = longId,
                                 name = a.title,
                                 songCount = 0,
                                 imageUrl = a.thumbnail

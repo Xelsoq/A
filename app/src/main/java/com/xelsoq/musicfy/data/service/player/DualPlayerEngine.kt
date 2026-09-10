@@ -50,6 +50,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -1110,13 +1111,31 @@ class DualPlayerEngine @Inject constructor(
             override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
                 val uri = dataSpec.uri
                 val scheme = uri.scheme
+                // Custom schemes cannot be loaded natively by ExoPlayer — must resolve to http(s)/file.
                 if (scheme in CLOUD_PROXY_SCHEMES) {
                     val originalUri = uri.toString()
                     val resolved = resolvedUriCache.get(originalUri)
                     if (resolved != null) {
                         return dataSpec.buildUpon().setUri(resolved).build()
                     }
-                    Timber.tag("DualPlayerEngine").d("resolveDataSpec: Cache MISS for %s — using original URI", scheme)
+                    // Cache miss: resolve synchronously so first play does not hit Source error
+                    // with an unresolvable youtube:// (or telegram://, etc.) URI.
+                    try {
+                        val fallbackResolved = runBlocking { resolveCloudUri(uri) }
+                        if (fallbackResolved != uri) {
+                            return dataSpec.buildUpon().setUri(fallbackResolved).build()
+                        }
+                    } catch (e: Exception) {
+                        Timber.tag("DualPlayerEngine").w(
+                            e,
+                            "Synchronous resolveCloudUri failed for %s",
+                            originalUri
+                        )
+                    }
+                    Timber.tag("DualPlayerEngine").w(
+                        "resolveDataSpec: could not resolve %s — playback will likely fail",
+                        originalUri
+                    )
                 }
                 return dataSpec
             }
