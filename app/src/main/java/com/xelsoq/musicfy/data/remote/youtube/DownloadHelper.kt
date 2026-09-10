@@ -149,7 +149,7 @@ object DownloadHelper {
 
             val publicDownloadDir = File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "PixelMusic"
+                "Musicfy"
             )
             if (!publicDownloadDir.exists()) {
                 publicDownloadDir.mkdirs()

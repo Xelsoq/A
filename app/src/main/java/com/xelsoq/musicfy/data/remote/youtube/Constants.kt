@@ -12,16 +12,16 @@ object Constants {
         object Github {
             object Beta {
                 const val API =
-                    "https://api.github.com/repos/ianshulyadav/PixelMusic/commits/main"
+                    "https://api.github.com/repos/xelsoq/Musicfy/commits/main"
                 const val DOWNLOAD =
-                    "https://github.com/ianshulyadav/PixelMusic/releases/download/beta/PixelPlayer.apk"
+                    "https://github.com/xelsoq/Musicfy/releases/download/beta/Musicfy.apk"
             }
 
             object Release {
                 const val API =
-                    "https://api.github.com/repos/ianshulyadav/PixelMusic/releases/latest"
+                    "https://api.github.com/repos/xelsoq/Musicfy/releases/latest"
                 const val DOWNLOAD =
-                    "https://github.com/ianshulyadav/PixelMusic/releases/latest/download/PixelPlayer.apk"
+                    "https://github.com/xelsoq/Musicfy/releases/latest/download/Musicfy.apk"
             }
         }
     }
