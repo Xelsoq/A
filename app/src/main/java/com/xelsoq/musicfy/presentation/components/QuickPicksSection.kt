@@ -3,6 +3,7 @@ package com.xelsoq.musicfy.presentation.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,46 +23,54 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.carousel.HorizontalCenteredHeroCarousel
-import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import com.xelsoq.musicfy.data.model.Song
 import com.xelsoq.musicfy.data.preferences.QuickPicksDisplayMode
+import kotlin.math.absoluteValue
 
 /** Matches ArchiveTune `ListItemHeight`. */
 private val ListItemHeight = 64.dp
 private const val QuickPicksLimit = 48
 
+/** ArchiveTune / Material3 extraLarge-equivalent radius. */
+private val HeroCornerRadius = 28.dp
+
 /**
- * Quick Picks — ArchiveTune parity:
- * - CARD uses [HorizontalCenteredHeroCarousel] (parallax / size-morph side cards)
- * - Borders via Surface so we don't depend on maskClip/maskBorder (unavailable here)
- * - LIST: 4-row LazyHorizontalGrid
+ * Quick Picks — ArchiveTune-like hero carousel.
+ *
+ * Material3 [HorizontalCenteredHeroCarousel] + maskClip is unavailable/broken here
+ * (side items were clipped to hard vertical edges). This implementation uses
+ * [HorizontalPager] + scale/alpha parallax so every visible card keeps full
+ * rounded corners while side cards shrink and peek — the classic hero effect.
  */
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun QuickPicksSection(
     songs: List<Song>,
@@ -112,7 +121,7 @@ fun QuickPicksSection(
         Spacer(Modifier.height(10.dp))
 
         when (displayMode) {
-            QuickPicksDisplayMode.CARD -> QuickPicksHeroCarousel(
+            QuickPicksDisplayMode.CARD -> QuickPicksHeroPager(
                 songs = distinctSongs,
                 currentSongId = currentSongId,
                 isPlaying = isPlaying,
@@ -130,9 +139,9 @@ fun QuickPicksSection(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun QuickPicksHeroCarousel(
+private fun QuickPicksHeroPager(
     songs: List<Song>,
     currentSongId: String?,
     isPlaying: Boolean,
@@ -140,7 +149,7 @@ private fun QuickPicksHeroCarousel(
     onSongLongClick: ((Song) -> Unit)?
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        // Exact ArchiveTune breakpoints
+        // ArchiveTune breakpoints
         val heroHeight = when {
             maxWidth >= 840.dp -> 380.dp
             maxWidth >= 600.dp -> 356.dp
@@ -150,15 +159,19 @@ private fun QuickPicksHeroCarousel(
             .coerceAtLeast(232.dp)
             .coerceAtMost(440.dp)
 
-        val shape = MaterialTheme.shapes.extraLarge
+        // Center focused page; side cards peek with full rounded corners
+        val sidePadding = ((maxWidth - heroMaxWidth) / 2).coerceAtLeast(16.dp)
+        val pagerState = rememberPagerState(pageCount = { songs.size })
+        val shape = RoundedCornerShape(HeroCornerRadius)
         val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
 
-        // This is what produces the ArchiveTune parallax / side-item morph effect.
-        HorizontalCenteredHeroCarousel(
-            state = rememberCarouselState { songs.size },
-            maxItemWidth = heroMaxWidth,
-            itemSpacing = 10.dp,
-            contentPadding = PaddingValues(horizontal = 16.dp),
+        HorizontalPager(
+            state = pagerState,
+            contentPadding = PaddingValues(horizontal = sidePadding),
+            pageSpacing = 12.dp,
+            pageSize = PageSize.Fixed(heroMaxWidth),
+            // Allow side cards to draw scaled outside their slot without hard clip
+            beyondViewportPageCount = 1,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(heroHeight)
@@ -166,13 +179,24 @@ private fun QuickPicksHeroCarousel(
             val song = songs[index]
             val isActive = song.id == currentSongId
 
-            // maskClip / maskBorder are CarouselItemScope members (not package-level).
-            // They must be called in this lambda so the item follows the parallax mask.
+            // Parallax: focused page = 1f, neighbors shrink + fade slightly
+            val pageOffset = (
+                (pagerState.currentPage - index) + pagerState.currentPageOffsetFraction
+            ).absoluteValue
+            val scale = lerp(0.88f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
+            val alpha = lerp(0.72f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .maskClip(shape)
-                    .maskBorder(BorderStroke(1.dp, borderColor), shape)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        this.alpha = alpha
+                        clip = false
+                    }
+                    .clip(shape)
+                    .border(BorderStroke(1.dp, borderColor), shape)
                     .focusable()
                     .combinedClickable(
                         onClick = { onSongClick(song) },
