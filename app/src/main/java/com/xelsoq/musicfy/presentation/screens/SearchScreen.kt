@@ -33,6 +33,7 @@ import com.xelsoq.musicfy.presentation.components.GenreMultiSelectionOptionSheet
 import com.xelsoq.musicfy.presentation.components.subcomps.SelectionActionRow
 import com.xelsoq.musicfy.presentation.components.subcomps.SelectionCountPill
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -94,6 +95,7 @@ import com.xelsoq.musicfy.data.model.Genre
 import com.xelsoq.musicfy.data.model.Artist
 import com.xelsoq.musicfy.data.model.Playlist
 import com.xelsoq.musicfy.data.model.SearchFilterType
+import com.xelsoq.musicfy.data.preferences.SearchSource
 import com.xelsoq.musicfy.data.model.SearchHistoryItem
 import com.xelsoq.musicfy.data.model.SearchResultItem
 import com.xelsoq.musicfy.data.model.Song
@@ -101,6 +103,10 @@ import com.xelsoq.musicfy.presentation.components.SmartImage
 import com.xelsoq.musicfy.presentation.components.SmartImageListTargetSize
 import com.xelsoq.musicfy.presentation.components.SongInfoBottomSheet
 import com.xelsoq.musicfy.presentation.viewmodel.PlayerViewModel
+import com.xelsoq.musicfy.data.remote.youtube.toNativeSong
+import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.util.Log
 import com.xelsoq.musicfy.ui.theme.LocalMusicfyDarkTheme
 import androidx.compose.material.icons.rounded.DeleteForever
@@ -167,6 +173,7 @@ fun SearchScreen(
     onSearchBarActiveChange: (Boolean) -> Unit = {}
 ) {
     var searchQuery by rememberSaveable { mutableStateOf(playerViewModel.searchQuery) }
+    val searchSource by playerViewModel.searchSource.collectAsStateWithLifecycle()
     val statusBarTopInset = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
     val systemNavBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
@@ -256,7 +263,7 @@ fun SearchScreen(
     }
 
     // Search debouncing is centralized in SearchStateHolder.
-    LaunchedEffect(searchQuery, currentFilter) {
+    LaunchedEffect(searchQuery, currentFilter, searchSource) {
         playerViewModel.performSearch(searchQuery)
     }
     val searchResults = searchUiState.searchResults
@@ -350,7 +357,10 @@ fun SearchScreen(
                                 onExpandedChange = {},
                                 placeholder = {
                                     Text(
-                                        stringResource(R.string.search_placeholder),
+                                        if (searchSource == SearchSource.LOCAL)
+                                            stringResource(R.string.search_placeholder)
+                                        else
+                                            "Search YouTube Music",
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -364,24 +374,45 @@ fun SearchScreen(
                                     )
                                 },
                                 trailingIcon = {
-                                    if (searchQuery.isNotBlank()) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
                                         IconButton(
-                                            onClick = {
-                                                searchQuery = ""
-                                                playerViewModel.updateSearchQuery("")
-                                            },
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .clip(CircleShape)
-                                                .background(
-                                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-                                                )
+                                            onClick = { playerViewModel.toggleSearchSource() },
+                                            modifier = Modifier.size(40.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Close,
-                                                contentDescription = stringResource(R.string.search_cd_clear_search_query),
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
+                                            if (searchSource == SearchSource.LOCAL) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.rounded_library_music_24),
+                                                    contentDescription = "Toggle Search Source",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            } else {
+                                                Image(
+                                                    painter = painterResource(id = R.drawable.ic_youtube),
+                                                    contentDescription = "Toggle Search Source",
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                        }
+                                        if (searchQuery.isNotBlank()) {
+                                            IconButton(
+                                                onClick = {
+                                                    searchQuery = ""
+                                                    playerViewModel.updateSearchQuery("")
+                                                },
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                                                    )
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Close,
+                                                    contentDescription = stringResource(R.string.search_cd_clear_search_query),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
                                         }
                                     }
                                 },
@@ -1294,16 +1325,47 @@ fun SearchResultsList(
                                 val coroutineScope = rememberCoroutineScope()
                                 val onPlayClick: () -> Unit = {
                                     coroutineScope.launch {
-                                        val songs = playerViewModel.getSongs(item.playlist.songIds)
-                                        if (songs.isNotEmpty()) {
-                                            playerViewModel.playSongs(
-                                                songs,
-                                                songs.first(),
-                                                item.playlist.name
-                                            )
-                                            if (playerStableState.isShuffleEnabled) playerViewModel.toggleShuffle()
+                                        if (item.playlist.source == "YOUTUBE") {
+                                            try {
+                                                val playlistId = item.playlist.id
+                                                val page = withContext(Dispatchers.IO) {
+                                                    YouTube.playlist(playlistId).getOrNull()
+                                                }
+                                                val firstPageSongs = page?.songs?.map { it.toNativeSong() }.orEmpty()
+                                                if (firstPageSongs.isNotEmpty()) {
+                                                    playerViewModel.playSongs(
+                                                        firstPageSongs,
+                                                        firstPageSongs.first(),
+                                                        item.playlist.name
+                                                    )
+                                                    // Load more pages in background
+                                                    var continuation = page?.songsContinuation
+                                                    while (!continuation.isNullOrBlank()) {
+                                                        val contPage = withContext(Dispatchers.IO) {
+                                                            YouTube.playlistContinuation(continuation!!).getOrNull()
+                                                        } ?: break
+                                                        val contSongs = contPage.songs.map { it.toNativeSong() }
+                                                        contSongs.forEach { playerViewModel.addSongToQueue(it) }
+                                                        continuation = contPage.continuation
+                                                    }
+                                                } else {
+                                                    playerViewModel.sendToast("Empty playlist")
+                                                }
+                                            } catch (e: Exception) {
+                                                playerViewModel.sendToast("Failed to load playlist")
+                                            }
                                         } else {
-                                            playerViewModel.sendToast("Empty playlist")
+                                            val songs = playerViewModel.getSongs(item.playlist.songIds)
+                                            if (songs.isNotEmpty()) {
+                                                playerViewModel.playSongs(
+                                                    songs,
+                                                    songs.first(),
+                                                    item.playlist.name
+                                                )
+                                                if (playerStableState.isShuffleEnabled) playerViewModel.toggleShuffle()
+                                            } else {
+                                                playerViewModel.sendToast("Empty playlist")
+                                            }
                                         }
                                         onItemSelected()
                                     }

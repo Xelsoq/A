@@ -692,6 +692,16 @@ class DualPlayerEngine @Inject constructor(
         lastSeekAtMs = SystemClock.elapsedRealtime()
     }
 
+    /**
+     * Forces an immediate refresh of the internal queue snapshot from the current
+     * master player timeline. Call this after programmatically adding/removing items
+     * to the player queue from outside the engine (e.g. AutoQueueManager) to ensure
+     * getNextTransitionTarget returns the correct next track immediately.
+     */
+    fun forceRefreshQueueSnapshot() {
+        refreshQueueSnapshotFromMaster(windowStartIndex = 0, usesWindowedQueue = false)
+    }
+
     fun removeTransitionFinishedListener(listener: () -> Unit) {
         onTransitionFinishedListeners.remove(listener)
     }
@@ -1264,10 +1274,24 @@ class DualPlayerEngine @Inject constructor(
 
     private suspend fun resolveYoutubeUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
         try {
-            val youtubeId = uriString.substringAfter("youtube://")
+            val youtubeId = uriString.substringAfter("youtube://").trim()
+            if (youtubeId.isBlank()) {
+                Timber.tag("DualPlayerEngine").e("resolveYoutubeUriAsync: empty youtubeId from $uriString")
+                return@withContext null
+            }
             val youtubeSong = com.xelsoq.musicfy.data.model.youtube.Song(youtubeId = youtubeId)
-            val path = com.xelsoq.musicfy.data.remote.youtube.YoutubeHelper
-                .getSongPlayerUrl(context, youtubeSong, allowLocal = true)
+            val path = try {
+                com.xelsoq.musicfy.data.remote.youtube.YoutubeHelper
+                    .getSongPlayerUrl(context, youtubeSong, allowLocal = true)
+            } catch (e: Exception) {
+                Timber.tag("DualPlayerEngine").w(e, "getSongPlayerUrl failed for $youtubeId, trying highest quality")
+                com.xelsoq.musicfy.data.remote.youtube.YoutubeHelper
+                    .getHighestQualityStreamUrl(context, youtubeSong)
+            }
+            if (path.isBlank()) {
+                Timber.tag("DualPlayerEngine").e("resolveYoutubeUriAsync: empty path for $youtubeId")
+                return@withContext null
+            }
             if (!path.startsWith("http")) {
                 com.xelsoq.musicfy.data.remote.youtube.YoutubeHelper
                     .registerLocalFilePath(youtubeId, path)

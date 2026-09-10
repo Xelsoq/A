@@ -57,6 +57,7 @@ import com.xelsoq.musicfy.data.preferences.AiPreferencesRepository
 import com.xelsoq.musicfy.data.preferences.AlbumArtPaletteStyle
 import com.xelsoq.musicfy.data.preferences.ThemePreferencesRepository
 import com.xelsoq.musicfy.data.preferences.UserPreferencesRepository
+import com.xelsoq.musicfy.data.preferences.SearchSource
 import com.xelsoq.musicfy.data.preferences.QuickPicksDisplayMode
 import com.xelsoq.musicfy.data.preferences.AlbumArtQuality
 import com.xelsoq.musicfy.data.preferences.ThemePreference
@@ -1173,6 +1174,24 @@ class PlayerViewModel @Inject constructor(
 
     fun updateSearchQuery(query: String) {
         searchQuery = query
+    }
+
+    val searchSource: StateFlow<SearchSource> = userPreferencesRepository.searchSourceFlow.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        initialValue = SearchSource.ONLINE
+    )
+
+    fun toggleSearchSource() {
+        viewModelScope.launch {
+            val current = searchSource.value
+            val next = if (current == SearchSource.ONLINE) SearchSource.LOCAL else SearchSource.ONLINE
+            userPreferencesRepository.setSearchSource(next)
+            // Re-run search with the new source
+            if (searchQuery.isNotBlank()) {
+                searchStateHolder.performSearch(searchQuery)
+            }
+        }
     }
 
     private var mediaController: MediaController? = null

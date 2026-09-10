@@ -92,6 +92,10 @@ enum class QuickPicksDisplayMode {
     CARD, LIST
 }
 
+enum class SearchSource {
+    LOCAL, ONLINE
+}
+
 class UserPreferencesRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val json: Json
@@ -262,6 +266,7 @@ class UserPreferencesRepository @Inject constructor(
         val SHOW_SCROLLBAR = booleanPreferencesKey("show_scrollbar")
         val DISCOVER = stringPreferencesKey("discover")
         val QUICK_PICKS_DISPLAY_MODE = stringPreferencesKey("quick_picks_display_mode")
+        val SEARCH_SOURCE = stringPreferencesKey("search_source")
         val PURE_YT_MUSIC_ONLY = booleanPreferencesKey("pure_yt_music_only")
         val CONTENT_COUNTRY = stringPreferencesKey("content_country")
         val PLAYER_STREAM_CLIENT = stringPreferencesKey("player_stream_client")
@@ -1445,6 +1450,23 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.PURE_YT_MUSIC_ONLY] = enabled
         }
+
+    val searchSourceFlow: Flow<SearchSource> =
+        dataStore.data.map { preferences ->
+            val stored = preferences[PreferencesKeys.SEARCH_SOURCE]
+            try {
+                if (stored != null) SearchSource.valueOf(stored) else SearchSource.ONLINE
+            } catch (e: Exception) {
+                SearchSource.ONLINE
+            }
+        }.distinctUntilChanged()
+
+    suspend fun setSearchSource(source: SearchSource) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SEARCH_SOURCE] = source.name
+        }
+    }
+
     }
 
     val contentCountryFlow: Flow<String> =

@@ -54,6 +54,11 @@ import com.xelsoq.musicfy.data.preferences.UserPreferencesRepository
 import com.xelsoq.musicfy.data.repository.MusicRepository
 import com.xelsoq.musicfy.data.service.player.DualPlayerEngine
 import com.xelsoq.musicfy.data.service.player.TransitionController
+import com.xelsoq.musicfy.data.remote.youtube.AutoQueueManager
+import com.xelsoq.musicfy.data.remote.youtube.QueuePreloadManager
+import com.xelsoq.musicfy.data.remote.youtube.ExoCache
+import com.xelsoq.musicfy.data.remote.youtube.DatastoreRepository as YoutubeDatastoreRepository
+import com.xelsoq.musicfy.data.database.MusicDao
 import com.xelsoq.musicfy.ui.glancewidget.PlayerActions
 import com.xelsoq.musicfy.utils.AlbumArtUtils
 import dagger.hilt.android.AndroidEntryPoint
@@ -165,6 +170,14 @@ class MusicService : MediaLibraryService() {
     @Inject
     @AppScope
     lateinit var appScope: CoroutineScope
+    @Inject
+    lateinit var youtubeDatastoreRepository: YoutubeDatastoreRepository
+    @Inject
+    lateinit var exoCache: ExoCache
+    @Inject
+    lateinit var musicDao: MusicDao
+    @Inject
+    lateinit var engagementDao: com.xelsoq.musicfy.data.database.EngagementDao
 
     // ReplayGain volume-normalization state + logic, extracted to a standalone
     // component. Lazily built so the Hilt-injected engine/replayGainManager and the
@@ -323,6 +336,8 @@ class MusicService : MediaLibraryService() {
             oldPlayer.removeListener(playerListener)
             session.player = player
             player.addListener(playerListener)
+            AutoQueueManager.updatePlayer(player)
+            QueuePreloadManager.updatePlayer(player)
         }
 
         Timber.tag("MusicService").d(logMessage)
@@ -421,6 +436,25 @@ class MusicService : MediaLibraryService() {
         engine.addPlayerSwapListener(playerSwapListener)
         engine.addTransitionDisplayPlayerListener(transitionDisplayPlayerListener)
         engine.addTransitionFinishedListener(transitionFinishedListener)
+
+        // Attach YouTube Music radio-mode auto-queue and stream-URL preloader
+        AutoQueueManager.attach(
+            engine.masterPlayer,
+            this,
+            youtubeDatastoreRepository,
+            serviceScope,
+            musicDao,
+            engagementDao,
+            engine::forceRefreshQueueSnapshot
+        )
+        QueuePreloadManager.attach(
+            engine.masterPlayer,
+            this,
+            youtubeDatastoreRepository,
+            serviceScope,
+            exoCache,
+            engine
+        )
 
         controller.initialize()
         serviceScope.launch {
@@ -1448,6 +1482,10 @@ class MusicService : MediaLibraryService() {
         unregisterHeadsetReconnectMonitor()
         unregisterSystemVolumeObserver()
         replayGainProcessor.cancel()
+
+        // Detach YouTube Music radio-mode auto-queue and stream-URL preloader
+        AutoQueueManager.detach(engine.masterPlayer)
+        QueuePreloadManager.detach(engine.masterPlayer)
 
         engine.removePlayerSwapListener(playerSwapListener)
         engine.removeTransitionDisplayPlayerListener(transitionDisplayPlayerListener)
