@@ -1,9 +1,9 @@
 package com.xelsoq.musicfy.presentation.components
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,28 +23,28 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.carousel.HorizontalCenteredHeroCarousel
-import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,12 +56,19 @@ import com.xelsoq.musicfy.data.preferences.QuickPicksDisplayMode
 private val ListItemHeight = 64.dp
 private const val QuickPicksLimit = 48
 
+/** ArchiveTune / Material3 extraLarge-equivalent radius for hero cards. */
+private val HeroCornerRadius = 28.dp
+
 /**
- * Quick Picks — layout aligned with ArchiveTune:
- * - CARD: [HorizontalCenteredHeroCarousel] hero cards with gradient + outline
- * - LIST: [LazyHorizontalGrid] 4 rows, ~half-width items (YT Music style)
+ * Quick Picks — visual parity with ArchiveTune:
+ * - CARD: centered hero pager (peek side cards), rounded 28dp, inset border, gradient
+ * - LIST: LazyHorizontalGrid 4 rows
+ *
+ * Note: Material3 [HorizontalCenteredHeroCarousel] + maskClip/maskBorder are not
+ * usable in this project's Material3 build, so CARD uses [HorizontalPager] with
+ * the same dimensions/spacing/styling as ArchiveTune.
  */
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun QuickPicksSection(
     songs: List<Song>,
@@ -112,7 +119,7 @@ fun QuickPicksSection(
         Spacer(Modifier.height(10.dp))
 
         when (displayMode) {
-            QuickPicksDisplayMode.CARD -> QuickPicksHeroCarousel(
+            QuickPicksDisplayMode.CARD -> QuickPicksHeroPager(
                 songs = distinctSongs,
                 currentSongId = currentSongId,
                 isPlaying = isPlaying,
@@ -130,9 +137,9 @@ fun QuickPicksSection(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun QuickPicksHeroCarousel(
+private fun QuickPicksHeroPager(
     songs: List<Song>,
     currentSongId: String?,
     isPlaying: Boolean,
@@ -150,37 +157,44 @@ private fun QuickPicksHeroCarousel(
             .coerceAtLeast(232.dp)
             .coerceAtMost(440.dp)
 
-        HorizontalCenteredHeroCarousel(
-            state = rememberCarouselState { songs.size },
-            maxItemWidth = heroMaxWidth,
-            itemSpacing = 10.dp,
-            contentPadding = PaddingValues(horizontal = 16.dp),
+        // Center the focused page; 16.dp side inset matches ArchiveTune contentPadding
+        val sidePadding = ((maxWidth - heroMaxWidth) / 2).coerceAtLeast(16.dp)
+        val pagerState = rememberPagerState(pageCount = { songs.size })
+        val shape = RoundedCornerShape(HeroCornerRadius)
+        val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+
+        HorizontalPager(
+            state = pagerState,
+            contentPadding = PaddingValues(horizontal = sidePadding),
+            pageSpacing = 10.dp,
+            pageSize = PageSize.Fixed(heroMaxWidth),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(heroHeight)
         ) { index ->
             val song = songs[index]
             val isActive = song.id == currentSongId
-            // Large continuous radius — matches ArchiveTune hero cards; avoid
-            // double-clip (parent + SmartImage) which produced square cut borders.
-            val shape = RoundedCornerShape(28.dp)
 
-            Box(
+            // Surface applies shape + border correctly (no half-stroke clipped like
+            // Modifier.border after clip). Matches ArchiveTune rounded hero cards.
+            Surface(
+                shape = shape,
+                border = BorderStroke(1.dp, borderColor),
+                color = Color.Transparent,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(shape)
                     .focusable()
                     .combinedClickable(
                         onClick = { onSongClick(song) },
                         onLongClick = { onSongLongClick?.invoke(song) }
                     )
             ) {
-                // Image fills the already-clipped box (no extra shape on SmartImage)
+                Box(modifier = Modifier.fillMaxSize()) {
                 SmartImage(
                     model = song.albumArtUriString,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    shape = androidx.compose.ui.graphics.RectangleShape,
+                    shape = RectangleShape,
                     modifier = Modifier.fillMaxSize()
                 )
 
@@ -193,19 +207,6 @@ private fun QuickPicksHeroCarousel(
                                 0.48f to Color.Black.copy(alpha = 0.08f),
                                 1f to Color.Black.copy(alpha = 0.84f)
                             )
-                        )
-                )
-
-                // Border drawn INSIDE the clip so edges are never cut by the carousel
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .border(
-                            BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
-                            ),
-                            shape
                         )
                 )
 
@@ -252,7 +253,8 @@ private fun QuickPicksHeroCarousel(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
+                } // Box
+            } // Surface
         }
     }
 }
@@ -267,7 +269,6 @@ private fun QuickPicksHorizontalList(
     onSongLongClick: ((Song) -> Unit)?
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        // ArchiveTune: half-width on large screens, nearly full on phones
         val widthFactor = if (maxWidth * 0.475f >= 320.dp) 0.475f else 0.9f
         val itemWidth = maxWidth * widthFactor
         val gridState = rememberLazyGridState()
@@ -303,10 +304,6 @@ private fun QuickPicksHorizontalList(
     }
 }
 
-/**
- * Minimal SongListItem stand-in matching ArchiveTune / YT Music row:
- * square thumb + title/artist + optional playing glyph.
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ArchiveStyleSongRow(
