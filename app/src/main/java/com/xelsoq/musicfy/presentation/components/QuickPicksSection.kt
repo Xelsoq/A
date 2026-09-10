@@ -88,14 +88,14 @@ fun QuickPicksSection(
             )
             if (onSeeAllClick != null) {
                 FilledIconButton(
-                    onClick = onSeeAllClick,
                     modifier = Modifier
                         .height(40.dp)
                         .width(64.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         contentColor = MaterialTheme.colorScheme.secondary
-                    )
+                    ),
+                    onClick = onSeeAllClick
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
@@ -106,7 +106,7 @@ fun QuickPicksSection(
             }
         }
 
-        Spacer(Modifier = Modifier.height(10.dp))
+        Spacer(Modifier.height(10.dp))
 
         when (displayMode) {
             QuickPicksDisplayMode.CARD -> QuickPicksCardMode(
