@@ -3,6 +3,7 @@ package com.xelsoq.musicfy.presentation.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,12 +31,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.carousel.HorizontalCenteredHeroCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -42,14 +45,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.size.Size
 import com.xelsoq.musicfy.data.model.Song
-import com.xelsoq.musicfy.data.preferences.CarouselStyle
 import com.xelsoq.musicfy.data.preferences.QuickPicksDisplayMode
 import com.xelsoq.musicfy.presentation.components.snapping.LazyGridSnapLayoutInfoProvider
 
@@ -57,18 +59,13 @@ import com.xelsoq.musicfy.presentation.components.snapping.LazyGridSnapLayoutInf
 private val ListItemHeight = 64.dp
 private const val QuickPicksLimit = 48
 
-/** Material3 extraLarge-equivalent — used for every hero card, matching ArchiveTune's QuickPicksSection. */
-private val HeroCorner = RoundedCornerShape(28.dp)
-
 /**
- * Quick Picks, styled after ArchiveTune's `QuickPicksSection`:
- * - CARD: a real parallax hero carousel — [RoundedHorizontalMultiBrowseCarousel] (this app's
- *   own faithful reimplementation of Material3's experimental Carousel, already used by the
- *   player's album art carousel) in its centered "two peek" style: one large focused card with
- *   a small peek of the previous/next card on either side, true continuous mask-clip + resize
- *   as you drag — the same engine ArchiveTune's `HorizontalCenteredHeroCarousel` uses, not a
- *   fake scale/alpha approximation.
- * - LIST: 4-row LazyHorizontalGrid, unchanged.
+ * Quick Picks — ported 1:1 from ArchiveTune's Home screen:
+ * - CARD: the real Material3 `HorizontalCenteredHeroCarousel` (the same
+ *   component ArchiveTune uses) with `maskClip`/`maskBorder`, so side cards
+ *   morph and squeeze exactly like the upstream hero carousel — that's what
+ *   gives the parallax feel, not a manual scale/alpha hack.
+ * - LIST: 4-row LazyHorizontalGrid (unchanged, already matched ArchiveTune)
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -86,35 +83,39 @@ fun QuickPicksSection(
     val distinctSongs = remember(songs) { songs.distinctBy { it.id }.take(QuickPicksLimit) }
 
     Column(modifier = modifier.fillMaxWidth()) {
+        // Header ported from ArchiveTune's HomeSectionHeader: the whole row
+        // is the tap target, title uses the Expressive titleLarge style, and
+        // the chevron is a plain icon (no filled pill button around it).
         Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .heightIn(min = 64.dp)
+                .then(
+                    if (onSeeAllClick != null) {
+                        Modifier.clickable(onClick = onSeeAllClick)
+                    } else {
+                        Modifier
+                    }
+                )
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Text(
                 text = "Quick Picks",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLargeEmphasized,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
             if (onSeeAllClick != null) {
-                FilledIconButton(
-                    modifier = Modifier
-                        .height(40.dp)
-                        .width(64.dp),
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.secondary
-                    ),
-                    onClick = onSeeAllClick
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                        contentDescription = "See all quick picks",
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = "See all quick picks",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
@@ -139,7 +140,11 @@ fun QuickPicksSection(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalMaterial3ExpressiveApi::class,
+    ExperimentalFoundationApi::class,
+)
 @Composable
 private fun QuickPicksHeroCarousel(
     songs: List<Song>,
@@ -154,38 +159,45 @@ private fun QuickPicksHeroCarousel(
             maxWidth >= 600.dp -> 356.dp
             else -> 332.dp
         }
-        val carouselState = rememberCarouselState(itemCount = { songs.size })
+        val heroMaxWidth = (maxWidth - 48.dp)
+            .coerceAtLeast(232.dp)
+            .coerceAtMost(440.dp)
+        val density = LocalDensity.current
+        val requestWidthPx = with(density) { heroMaxWidth.roundToPx().coerceAtLeast(1) }
+        val requestHeightPx = with(density) { heroHeight.roundToPx().coerceAtLeast(1) }
         val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
-        val haptic = LocalHapticFeedback.current
 
-        RoundedHorizontalMultiBrowseCarousel(
-            state = carouselState,
+        // The real Material3 hero carousel: it centers the focused item and
+        // peeks the neighbours, morphing/squeezing their mask as you drag —
+        // that built-in behaviour IS the parallax effect, so no manual
+        // scale/alpha math is needed here (unlike a plain HorizontalPager).
+        HorizontalCenteredHeroCarousel(
+            state = rememberCarouselState { songs.size },
+            maxItemWidth = heroMaxWidth,
+            itemSpacing = 10.dp,
+            contentPadding = PaddingValues(horizontal = 16.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(heroHeight),
-            itemSpacing = 10.dp,
-            itemCornerRadius = 28.dp,
-            // Large focused card centered, small peek of the previous/next card on either
-            // side — this is ArchiveTune's "centered hero" look.
-            carouselStyle = CarouselStyle.TWO_PEEK,
-            carouselWidth = maxWidth,
-            itemKey = { index -> songs[index].id }
+                .height(heroHeight)
         ) { index ->
             val song = songs[index]
             val isActive = song.id == currentSongId
+            val imageTargetSize = remember(requestWidthPx, requestHeightPx) {
+                Size(requestWidthPx, requestHeightPx)
+            }
 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .maskClip(HeroCorner)
-                    .maskBorder(BorderStroke(1.dp, borderColor), HeroCorner)
+                    .maskClip(MaterialTheme.shapes.extraLarge)
+                    .maskBorder(
+                        BorderStroke(1.dp, borderColor),
+                        MaterialTheme.shapes.extraLarge
+                    )
                     .focusable()
                     .combinedClickable(
                         onClick = { onSongClick(song) },
-                        onLongClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSongLongClick?.invoke(song)
-                        }
+                        onLongClick = { onSongLongClick?.invoke(song) }
                     )
             ) {
                 SmartImage(
@@ -193,6 +205,7 @@ private fun QuickPicksHeroCarousel(
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     shape = RectangleShape,
+                    targetSize = imageTargetSize,
                     modifier = Modifier.fillMaxSize()
                 )
 
@@ -237,8 +250,7 @@ private fun QuickPicksHeroCarousel(
                 ) {
                     Text(
                         text = song.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLargeEmphasized,
                         color = Color.White,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
