@@ -217,10 +217,16 @@
     <string name="settings_immersive_lyrics_subtitle">Auto-hide controls and enlarge text.</string>
     <string name="settings_auto_hide_delay_title">Auto-hide Delay</string>
     <string name="settings_auto_hide_delay_subtitle">Time before controls hide.</string>
+    <string name="settings_auto_hide_delay_1s">1s</string>
+    <string name="settings_auto_hide_delay_2s">2s</string>
     <string name="settings_auto_hide_delay_3s">3s</string>
     <string name="settings_auto_hide_delay_4s">4s</string>
     <string name="settings_auto_hide_delay_5s">5s</string>
     <string name="settings_auto_hide_delay_6s">6s</string>
+    <string name="settings_auto_hide_delay_7s">7s</string>
+    <string name="settings_auto_hide_delay_8s">8s</string>
+    <string name="settings_auto_hide_delay_9s">9s</string>
+    <string name="settings_auto_hide_delay_10s">10s</string>
     <string name="settings_app_navigation_section">App Navigation</string>
     <string name="settings_default_tab_title">Default Tab</string>
     <string name="settings_default_tab_subtitle">Choose the Default launch tab.</string>
@@ -470,8 +476,8 @@
     <!-- Experimental settings -->
     <string name="settings_exp_screen_title">Experimental</string>
     <string name="settings_exp_player_ui_tweaks_section">PlayerUI loading tweaks</string>
-    <string name="settings_exp_animated_lyrics_title">Animated Lyrics (High-end devices)</string>
-    <string name="settings_exp_animated_lyrics_subtitle">Uses spring animations and visual effects for lyrics. May cause frame drops on low-end devices.</string>
+    <string name="settings_exp_animated_lyrics_title">Animated Lyrics</string>
+    <string name="settings_exp_animated_lyrics_subtitle">Uses spring animations and visual effects for lyrics.</string>
     <string name="settings_exp_lyrics_blur_title">Lyric Blur Effect</string>
     <string name="settings_exp_lyrics_blur_subtitle">Applies a depth-of-field blur to inactive lyrics.</string>
     <string name="settings_exp_lyrics_blur_strength_title">Blur Strength</string>

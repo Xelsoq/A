@@ -213,3 +213,25 @@
     public static int d(...);
     public static int i(...);
 }
+
+
+# =============================================================================
+# YouTube Music / NewPipe / Mozilla Rhino (from PixelMusic)
+# =============================================================================
+# Missing classes for JSoup Re2j regex delegate and Mozilla Rhino JSON converter bean introspection
+-dontwarn com.google.re2j.**
+-dontwarn java.beans.**
+
+# Gson/serialization keep rules for InnerTube API models
+-keep class unshoo.ianshulyadav.pixelmusic.innertube.models.** { *; }
+-keep class unshoo.ianshulyadav.pixelmusic.innertube.pages.** { *; }
+
+# Mozilla Rhino JS engine references missing javax.script API
+-dontwarn javax.script.**
+-dontwarn org.mozilla.javascript.engine.**
+-dontwarn org.mozilla.javascript.**
+
+# NewPipe extractor
+-dontwarn org.schabi.newpipe.**
+-keep class org.schabi.newpipe.extractor.** { *; }
+

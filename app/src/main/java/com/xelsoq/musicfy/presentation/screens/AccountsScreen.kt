@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.CloudQueue
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -98,6 +99,7 @@ fun AccountsScreen(
     onOpenQqMusicDashboard: () -> Unit = {},
     onOpenNavidromeDashboard: () -> Unit = {},
     onOpenJellyfinDashboard: () -> Unit = {},
+    onOpenYoutubeAuth: () -> Unit = {},
     viewModel: AccountsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -213,6 +215,7 @@ fun AccountsScreen(
                                 onOpenQqMusicDashboard = onOpenQqMusicDashboard,
                                 onOpenNavidromeDashboard = onOpenNavidromeDashboard,
                                 onOpenJellyfinDashboard = onOpenJellyfinDashboard,
+                                onOpenYoutubeAuth = onOpenYoutubeAuth,
                                 preferNeteaseDashboard = true
                             )
                         },
@@ -242,6 +245,7 @@ fun AccountsScreen(
                                 onOpenQqMusicDashboard = onOpenQqMusicDashboard,
                                 onOpenNavidromeDashboard = onOpenNavidromeDashboard,
                                 onOpenJellyfinDashboard = onOpenJellyfinDashboard,
+                                onOpenYoutubeAuth = onOpenYoutubeAuth,
                                 preferNeteaseDashboard = false
                             )
                         }
@@ -562,6 +566,7 @@ private fun EmptyAccountsCard(
                     ExternalServiceAccount.TELEGRAM -> painterResource(R.drawable.telegram)
                     ExternalServiceAccount.GOOGLE_DRIVE -> painterResource(R.drawable.rounded_drive_export_24)
                     ExternalServiceAccount.JELLYFIN -> painterResource(R.drawable.ic_jellyfin)
+                    ExternalServiceAccount.YOUTUBE -> painterResource(R.drawable.qq_music)
                     ExternalServiceAccount.NAVIDROME -> painterResource(R.drawable.ic_navidrome_md3)
                 }
                 FilledTonalButton(
@@ -647,6 +652,14 @@ private fun servicePalette(service: ExternalServiceAccount): ServicePalette {
             primaryActionContainer = Color(0xFFE3F2FD),
             primaryActionTint = Color(0xFF1565C0)
         )
+        ExternalServiceAccount.YOUTUBE -> ServicePalette(
+            iconContainer = Color(0xFFCC0000),
+            iconTint = Color.White,
+            statusContainer = Color(0xFFFFEBEE),
+            statusTint = Color(0xFFB71C1C),
+            primaryActionContainer = Color(0xFFFFCDD2),
+            primaryActionTint = Color(0xFFB71C1C)
+        )
         ExternalServiceAccount.JELLYFIN -> ServicePalette(
             iconContainer = Color(0xFF00A4DC),
             iconTint = Color.White,
@@ -666,6 +679,7 @@ private fun accountIcon(service: ExternalServiceAccount): ImageVector {
         ExternalServiceAccount.QQ_MUSIC -> Icons.Rounded.MusicNote
         ExternalServiceAccount.NAVIDROME -> Icons.Rounded.CloudQueue
         ExternalServiceAccount.JELLYFIN -> Icons.Rounded.CloudQueue
+        ExternalServiceAccount.YOUTUBE -> Icons.Rounded.PlayArrow
     }
 }
 
@@ -721,6 +735,7 @@ private fun serviceDisplayName(service: ExternalServiceAccount): String {
         ExternalServiceAccount.QQ_MUSIC -> stringResource(R.string.auth_qq_title)
         ExternalServiceAccount.NAVIDROME -> stringResource(R.string.auth_subsonic_title)
         ExternalServiceAccount.JELLYFIN -> stringResource(R.string.auth_jellyfin_title)
+        ExternalServiceAccount.YOUTUBE -> "YouTube Music"
     }
 }
 
@@ -731,6 +746,7 @@ private fun openService(
     onOpenQqMusicDashboard: () -> Unit,
     onOpenNavidromeDashboard: () -> Unit,
     onOpenJellyfinDashboard: () -> Unit,
+    onOpenYoutubeAuth: () -> Unit,
     preferNeteaseDashboard: Boolean
 ) {
     when (service) {
@@ -782,6 +798,9 @@ private fun openService(
                     intent = Intent(context, JellyfinLoginActivity::class.java)
                 )
             }
+        }
+        ExternalServiceAccount.YOUTUBE -> {
+            onOpenYoutubeAuth()
         }
     }
 }

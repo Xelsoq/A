@@ -13,6 +13,7 @@ import android.os.Build
 import android.graphics.RenderEffect as AndroidRenderEffect
 import android.graphics.Shader as AndroidShader
 import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.Color
 import android.os.Bundle
 import android.os.Trace
 import android.provider.Settings
@@ -893,18 +894,33 @@ class MainActivity : ComponentActivity() {
                                         clip = true
                                         shadowElevation = navBarElevationPx
                                     },
-                                color = NavigationBarDefaults.containerColor
+                                // O blur deixou de ser aplicado aqui em cima de toda a Surface
+                                // (o que borrava os ícones/labels da barra de navegação também).
+                                // A cor real é pintada apenas na camada de fundo abaixo.
+                                color = Color.Transparent
                             ) {
-                                PlayerInternalNavigationBar(
-                                    navController = navController,
-                                    navItems = commonNavItems,
-                                    currentRoute = currentRoute,
-                                    navBarStyle = navBarStyle,
-                                    compactMode = navBarCompactMode,
-                                    bottomBarPadding = bottomBarPadding,
-                                    onSearchIconDoubleTap = onSearchIconDoubleTap,
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    // Camada de fundo, atrás dos ícones/labels. O `clip = true` +
+                                    // `shape` definidos no graphicsLayer acima já recortam toda a
+                                    // Surface no formato arredondado animado.
+                                    Box(
+                                        modifier = Modifier
+                                            .matchParentSize()
+                                            .background(NavigationBarDefaults.containerColor)
+                                    )
+                                    // Camada de conteúdo: ícones/labels sempre 100% nítidos,
+                                    // nunca tocados pelo blur acima.
+                                    PlayerInternalNavigationBar(
+                                        navController = navController,
+                                        navItems = commonNavItems,
+                                        currentRoute = currentRoute,
+                                        navBarStyle = navBarStyle,
+                                        compactMode = navBarCompactMode,
+                                        bottomBarPadding = bottomBarPadding,
+                                        onSearchIconDoubleTap = onSearchIconDoubleTap,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
                             }
                         }
                     }

@@ -20,11 +20,17 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven("https://jitpack.io") {
+            metadataSources {
+                mavenPom()
+                artifact()
+                ignoreGradleMetadataRedirection()
+            }
             content {
                 includeGroup("com.github.FaceOnLive")
                 includeGroup("com.github.philburk")
                 includeGroup("com.github.racra")
                 includeGroup("com.github.tdlibx")
+                includeGroup("com.github.TeamNewPipe")
             }
         }
     }
@@ -32,6 +38,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Musicfy"
 include(":app")
-include(":shared")
-include(":wear")
 include(":baselineprofile")

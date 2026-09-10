@@ -57,6 +57,7 @@ import com.xelsoq.musicfy.data.preferences.AiPreferencesRepository
 import com.xelsoq.musicfy.data.preferences.AlbumArtPaletteStyle
 import com.xelsoq.musicfy.data.preferences.ThemePreferencesRepository
 import com.xelsoq.musicfy.data.preferences.UserPreferencesRepository
+import com.xelsoq.musicfy.data.preferences.QuickPicksDisplayMode
 import com.xelsoq.musicfy.data.preferences.AlbumArtQuality
 import com.xelsoq.musicfy.data.preferences.ThemePreference
 import com.xelsoq.musicfy.data.repository.LyricsSearchResult
@@ -253,6 +254,14 @@ class PlayerViewModel @Inject constructor(
      * High-frequency playback position should not force global UI recomposition.
      * Keep a dedicated position flow for real-time UI elements (seek bars, lyrics timing).
      */
+    val quickPicksDisplayMode: StateFlow<QuickPicksDisplayMode> =
+        userPreferencesRepository.quickPicksDisplayModeFlow
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                QuickPicksDisplayMode.CARD
+            )
+
     val currentPlaybackPosition: StateFlow<Long> = playbackStateHolder.currentPosition
     val playbackHistory = listeningStatsTracker.playbackHistory
 

@@ -311,10 +311,21 @@ dependencies {
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.json)
+    implementation(libs.ktor.client.encoding)
+    implementation(libs.newpipe.extractor)
+    implementation(libs.okhttp.dnsoverhttps)
+    implementation(libs.fuel.android)
+    implementation(libs.fuel.json)
+
+    implementation("androidx.webkit:webkit:1.16.0")
+
 
     // Identity & Background
     implementation(libs.androidx.work.runtime.ktx)
-    implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services.auth)
@@ -343,9 +354,6 @@ dependencies {
         exclude(group = "androidx.compose.runtime")
         exclude(group = "androidx.compose.ui")
     }
-
-    // Projects
-    implementation(project(":shared"))
 
     // Testing (Unit)
     testImplementation(libs.junit.jupiter.api)
@@ -400,3 +408,10 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+
+// Fuel pulls an old kotlin-android-extensions-runtime that conflicts with parcelize.
+configurations.all {
+    exclude(group = "org.jetbrains.kotlin", module = "kotlin-android-extensions-runtime")
+}
+

@@ -17,7 +17,7 @@ import timber.log.Timber
 
 /**
  * Snapshot of the currently casting remote player, projected from the Cast
- * [MediaStatus]. Consumed by both the listening-stats sync and the widget/Wear
+ * [MediaStatus]. Consumed by both the listening-stats sync and the widget
  * surfaces, so it lives at file scope rather than nested in [MusicService].
  */
 internal data class RemotePlaybackSnapshot(
@@ -44,7 +44,7 @@ internal data class RemotePlaybackSnapshot(
  *  - Tracking the observed [CastSession] and mirroring its playback into the
  *    [ListeningStatsTracker].
  *  - Projecting the remote [MediaStatus] into a [RemotePlaybackSnapshot] for the
- *    widget/Wear surfaces.
+ *    widget surfaces.
  *
  * The service supplies [requestWidgetUpdate] so the coordinator can trigger a UI
  * refresh without depending on the widget pipeline directly. All Cast SDK access
@@ -74,7 +74,7 @@ internal class CastSyncCoordinator(
         val manager = runCatching {
             CastContext.getSharedInstance(context).sessionManager
         }.getOrElse { error ->
-            Timber.tag(TAG).w(error, "CastContext unavailable; skipping cast wear sync setup")
+            Timber.tag(TAG).w(error, "CastContext unavailable; skipping cast sync setup")
             return
         }
         sessionManager = manager

@@ -34,9 +34,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JellyfinSongEntity::class,
         JellyfinPlaylistEntity::class,
         AiCacheEntity::class,
-        AiUsageEntity::class
+        AiUsageEntity::class,
+        RelatedSongMap::class
     ],
-    version = 42,
+    version = 43,
     exportSchema = true
 )
 abstract class MusicfyDatabase : RoomDatabase() {
@@ -1526,6 +1527,23 @@ abstract class MusicfyDatabase : RoomDatabase() {
                 createSongsSearchVirtualTable(db)
                 installSongsSearchSyncTriggers(db)
                 rebuildSongsSearchIndex(db)
+            }
+        }
+
+
+        val MIGRATION_42_43 = object : Migration(42, 43) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `related_song_map` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `song_id` INTEGER NOT NULL,
+                        `related_song_id` INTEGER NOT NULL,
+                        FOREIGN KEY(`song_id`) REFERENCES `songs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`related_song_id`) REFERENCES `songs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_related_song_map_song_id` ON `related_song_map` (`song_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_related_song_map_related_song_id` ON `related_song_map` (`related_song_id`)")
             }
         }
 

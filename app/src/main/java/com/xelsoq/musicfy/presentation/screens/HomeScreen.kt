@@ -13,12 +13,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -93,6 +96,12 @@ import com.xelsoq.musicfy.presentation.jellyfin.dashboard.JellyfinDashboardViewM
 import com.xelsoq.musicfy.presentation.navidrome.dashboard.NavidromeDashboardViewModel
 import com.xelsoq.musicfy.presentation.qqmusic.dashboard.QqMusicDashboardViewModel
 import com.xelsoq.musicfy.presentation.components.DailyMixSection
+import com.xelsoq.musicfy.presentation.components.QuickPicksSection
+import com.xelsoq.musicfy.presentation.components.FavoriteArtistReleasesSection
+import com.xelsoq.musicfy.presentation.viewmodel.QuickPicksViewModel
+import com.xelsoq.musicfy.presentation.viewmodel.FavoriteArtistReleasesViewModel
+import com.xelsoq.musicfy.data.remote.youtube.toNativeSong
+import com.xelsoq.musicfy.data.preferences.QuickPicksDisplayMode
 import com.xelsoq.musicfy.presentation.components.HomeGradientTopBar
 import com.xelsoq.musicfy.presentation.components.HomeOptionsBottomSheet
 import com.xelsoq.musicfy.presentation.components.MiniPlayerHeight
@@ -135,6 +144,8 @@ fun HomeScreen(
     qqMusicViewModel: QqMusicDashboardViewModel = hiltViewModel(),
     navidromeViewModel: NavidromeDashboardViewModel = hiltViewModel(),
     jellyfinViewModel: JellyfinDashboardViewModel = hiltViewModel(),
+    quickPicksViewModel: QuickPicksViewModel = hiltViewModel(),
+    favoriteArtistReleasesViewModel: FavoriteArtistReleasesViewModel = hiltViewModel(),
     onOpenSidebar: () -> Unit
 ) {
     val context = LocalContext.current
@@ -149,6 +160,13 @@ fun HomeScreen(
     val homeMixPreviewSongs by playerViewModel.homeMixPreviewSongs.collectAsStateWithLifecycle()
     val playbackHistory by playerViewModel.playbackHistory.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val quickPicks by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) {
+        quickPicksViewModel.refresh()
+        favoriteArtistReleasesViewModel.loadReleases()
+    }
+    val artistReleases by favoriteArtistReleasesViewModel.releases.collectAsStateWithLifecycle()
+    val quickPicksDisplayMode by playerViewModel.quickPicksDisplayMode.collectAsStateWithLifecycle()
 
     val usesFallbackHomeMix = remember(curatedYourMixSongs, dailyMixSongs) {
         curatedYourMixSongs.isEmpty() && dailyMixSongs.isEmpty()
@@ -260,11 +278,11 @@ fun HomeScreen(
     val homeStatsOverview by statsViewModel.homeOverview.collectAsStateWithLifecycle()
 
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
-    val density = LocalDensity.current
-    val scrollThresholdPx = remember(density) { with(density) { 180.dp.toPx() } }
-    val isScrolledPastThreshold = remember {
-        derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > scrollThresholdPx }
-    }
+
+    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    // Fade preto: da barra de status até a metade da topbar (mesmo estilo do fade
+    // que já existe embaixo, atrás da barra de navegação).
+    val topGradientHeight = statusBarHeight + 32.dp
 
     // Persist the scroll position across navigation away/back. The Stats card and other
     // conditional sections can shift indices while data re-emits when returning, which
@@ -312,24 +330,40 @@ fun HomeScreen(
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
-                HomeGradientTopBar(
-                    onNavigationIconClick = {
-                        navController.navigateSafely(Screen.Settings.route)
-                    },
-                    onMoreOptionsClick = {
-                        showChangelogBottomSheet = true
-                    },
-                    onBetaClick = {
-                        showBetaInfoBottomSheet = true
-                    },
-                    onTelegramClick = {
-                         showStreamingProviderSheet = true
-                    },
-                    onMenuClick = {
-                        // onOpenSidebar() // Disabled
-                    },
-                    isScrolled = isScrolledPastThreshold.value
-                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    // Fade preto atrás da topbar: sempre visível, da barra de status
+                    // até a metade da topbar (a topbar em si é sempre transparente).
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(topGradientHeight)
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0.0f to Color.Black.copy(alpha = 0.55f),
+                                        1.0f to Color.Transparent
+                                    )
+                                )
+                            )
+                    )
+                    HomeGradientTopBar(
+                        onNavigationIconClick = {
+                            navController.navigateSafely(Screen.Settings.route)
+                        },
+                        onMoreOptionsClick = {
+                            showChangelogBottomSheet = true
+                        },
+                        onBetaClick = {
+                            showBetaInfoBottomSheet = true
+                        },
+                        onTelegramClick = {
+                             showStreamingProviderSheet = true
+                        },
+                        onMenuClick = {
+                            // onOpenSidebar() // Disabled
+                        },
+                    )
+                }
             }
         ) { innerPadding ->
             LazyColumn(
@@ -344,6 +378,27 @@ fun HomeScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
+
+                // YouTube Music Quick Picks
+                if (quickPicks.isNotEmpty()) {
+                    item(
+                        key = "quick_picks_section",
+                        contentType = "quick_picks_section"
+                    ) {
+                        QuickPicksSection(
+                            songs = quickPicks,
+                            onSongClick = { song ->
+                                playerViewModel.showAndPlaySong(song, quickPicks, "Quick Picks")
+                            },
+                            onSeeAllClick = {
+                                navController.navigateSafely(Screen.QuickPicksAll.route)
+                            },
+                            currentSongId = currentSong?.id,
+                            displayMode = quickPicksDisplayMode
+                        )
+                    }
+                }
+
                 if (yourMixSongs.isEmpty()) {
                     item(
                         key = "your_mix_placeholder",
@@ -476,6 +531,26 @@ fun HomeScreen(
                             themeStateHolder = playerViewModel.themeStateHolder,
                             currentSongId = currentSong?.id,
                             contentPadding = PaddingValues(start = 8.dp, end = 24.dp)
+                        )
+                    }
+                }
+
+
+                if (artistReleases.isNotEmpty()) {
+                    item(
+                        key = "favorite_artist_releases",
+                        contentType = "favorite_artist_releases"
+                    ) {
+                        FavoriteArtistReleasesSection(
+                            releases = artistReleases,
+                            onSongClick = { songItem ->
+                                val nativeSong = songItem.toNativeSong()
+                                playerViewModel.showAndPlaySong(nativeSong)
+                            },
+                            onAlbumClick = { albumItem ->
+                                // Album browse via YouTube playlist/album id when available
+                                navController.navigateSafely(Screen.Search.route)
+                            }
                         )
                     }
                 }

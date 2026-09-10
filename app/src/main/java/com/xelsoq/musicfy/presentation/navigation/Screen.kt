@@ -55,5 +55,7 @@ sealed class Screen(val route: String) {
     object QqMusicDashboard : Screen("qqmusic_dashboard")
     object NavidromeDashboard : Screen("navidrome_dashboard")
     object JellyfinDashboard : Screen("jellyfin_dashboard")
+    object YoutubeAuth : Screen("youtube_auth")
+    object QuickPicksAll : Screen("quick_picks_all")
 
 }

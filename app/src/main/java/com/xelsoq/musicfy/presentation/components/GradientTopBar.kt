@@ -1,21 +1,16 @@
 package com.xelsoq.musicfy.presentation.components
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.rounded.Cloud
@@ -23,6 +18,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
@@ -34,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -105,18 +103,13 @@ fun HomeGradientTopBar(
     onMenuClick: () -> Unit = {},
     isScrolled: Boolean = false,
 ) {
-    val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHighest
-
-    MusicfyStatusBarStyle(color = surfaceContainerHigh)
-
-    val animatedAlpha by animateFloatAsState(
-        targetValue = if (isScrolled) 1f else 0f,
-        animationSpec = tween(durationMillis = 300),
-        label = "topbar_alpha_transition"
-    )
+    // A topbar é sempre transparente: o efeito de "opaco ao rolar" foi substituído
+    // por um fade preto (desenhado pela HomeScreen) que vai da status bar até o
+    // meio da topbar, sempre visível.
+    MusicfyStatusBarStyle(color = Color.Black, useDarkIcons = false)
 
     TopAppBar(
-        modifier = Modifier.background(surfaceContainerHigh.copy(alpha = animatedAlpha)),
+        modifier = Modifier.background(Color.Transparent),
         title = { /* nada, usamos solo acciones */ },
         navigationIcon = {
             Row(
@@ -124,69 +117,64 @@ fun HomeGradientTopBar(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(start = 12.dp)
             ) {
-                FilledTonalButton(
-                    modifier = Modifier.padding(start = 4.dp),
+                GlassChip(
+                    onClick = onBetaClick,
                     shape = CircleShape,
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onBetaClick
+                    containerColor = NavigationBarDefaults.containerColor,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(start = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.topbar_beta_letter),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Black
-                        )
-                        Text(
-                            text = stringResource(R.string.topbar_beta_label),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(R.drawable.musicfy_base_monochrome),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         },
         actions = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(end = 14.dp)
             ) {
-                FilledIconButton(
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onTelegramClick
+                GlassChip(
+                    onClick = onTelegramClick,
+                    shape = CircleShape,
+                    containerColor = NavigationBarDefaults.containerColor,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                          imageVector = Icons.Rounded.Cloud,
                          contentDescription = stringResource(R.string.topbar_cd_cloud_streaming)
                     )
                 }
-                FilledIconButton(
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onMoreOptionsClick
+                GlassChip(
+                    onClick = onMoreOptionsClick,
+                    shape = CircleShape,
+                    containerColor = NavigationBarDefaults.containerColor,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.round_newspaper_24),
                         contentDescription = stringResource(R.string.topbar_cd_changelog)
                     )
                 }
-                FilledIconButton(
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onNavigationIconClick
+                GlassChip(
+                    onClick = onNavigationIconClick,
+                    shape = CircleShape,
+                    containerColor = NavigationBarDefaults.containerColor,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.rounded_settings_24),
@@ -199,4 +187,33 @@ fun HomeGradientTopBar(
             containerColor = Color.Transparent
         )
     )
+}
+
+/**
+ * Chip/botão usado na topbar.
+ */
+@Composable
+private fun GlassChip(
+    onClick: () -> Unit,
+    shape: Shape,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    content: @Composable RowScope.() -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = shape,
+        color = containerColor,
+        contentColor = contentColor
+    ) {
+        Row(
+            modifier = Modifier.padding(contentPadding),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content
+        )
+    }
 }

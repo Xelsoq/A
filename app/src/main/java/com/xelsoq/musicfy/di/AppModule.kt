@@ -165,7 +165,8 @@ object AppModule {
             MusicfyDatabase.MIGRATION_38_39,
             MusicfyDatabase.MIGRATION_39_40,
             MusicfyDatabase.MIGRATION_40_41,
-            MusicfyDatabase.MIGRATION_41_42
+            MusicfyDatabase.MIGRATION_41_42,
+            MusicfyDatabase.MIGRATION_42_43
         )
             .addCallback(MusicfyDatabase.createRuntimeArtifactsCallback())
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)

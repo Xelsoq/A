@@ -339,9 +339,9 @@ fun LyricsSheet(
 
     // Read animated lyrics preference internally from DataStore
     val useAnimatedLyricsFlow = remember(context) {
-        context.dataStore.data.map { it[booleanPreferencesKey("use_animated_lyrics")] ?: false }
+        context.dataStore.data.map { it[booleanPreferencesKey("use_animated_lyrics")] ?: true }
     }
-    val useAnimatedLyrics by useAnimatedLyricsFlow.collectAsStateWithLifecycle(initialValue = false)
+    val useAnimatedLyrics by useAnimatedLyricsFlow.collectAsStateWithLifecycle(initialValue = true)
 
     val animatedLyricsBlurEnabledFlow = remember(context) {
         context.dataStore.data.map { it[booleanPreferencesKey("animated_lyrics_blur_enabled")] ?: true }

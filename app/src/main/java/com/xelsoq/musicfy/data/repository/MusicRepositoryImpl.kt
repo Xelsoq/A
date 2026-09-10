@@ -1188,4 +1188,35 @@ class MusicRepositoryImpl @Inject constructor(
             com.xelsoq.musicfy.data.worker.SyncWorker.incrementalSyncWork()
         )
     }
+
+    override fun getQuickPicks(limit: Int): Flow<List<Song>> {
+        return musicDao.quickPicks(limit).map { entities ->
+            entities.map { it.toSong() }
+        }.distinctUntilChanged().flowOn(Dispatchers.IO)
+    }
+
+    override suspend fun getLastPlayedSong(): Song? = withContext(Dispatchers.IO) {
+        musicDao.getLastPlayedSong()?.toSong()
+    }
+
+    override suspend fun getRelatedSongs(songId: Long, limit: Int): List<Song> = withContext(Dispatchers.IO) {
+        musicDao.getRelatedSongs(songId, limit).map { it.toSong() }
+    }
+
+
+    override suspend fun getSongsByArtistName(artistName: String, limit: Int): List<Song> = withContext(Dispatchers.IO) {
+        musicDao.getSongsByArtistName(artistName, limit).map { it.toSong() }
+    }
+
+    override suspend fun getSongsByIdsOnce(songIds: List<String>): List<Song> = withContext(Dispatchers.IO) {
+        if (songIds.isEmpty()) return@withContext emptyList()
+        val longIds = songIds.mapNotNull { it.toLongOrNull() }
+        if (longIds.isEmpty()) {
+            // YouTube-style string ids: try content uri / id string match via existing flow methods
+            emptyList()
+        } else {
+            musicDao.getSongsByIdsListSimple(longIds).map { it.toSong() }
+        }
+    }
+
 }

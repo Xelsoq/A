@@ -1949,4 +1949,90 @@ interface MusicDao {
          */
         const val SONG_BATCH_SIZE = 500
     }
+
+
+    /** Simple quick picks: favorited and recently engaged songs. */
+    @Query("""
+        SELECT * FROM songs
+        WHERE is_favorite = 1
+           OR CAST(id AS TEXT) IN (
+                SELECT song_id FROM song_engagements WHERE play_count > 0
+           )
+        ORDER BY is_favorite DESC, id DESC
+        LIMIT :limit
+    """)
+    fun quickPicks(limit: Int = 20): kotlinx.coroutines.flow.Flow<List<SongEntity>>
+
+    @Query("""
+        SELECT s.* FROM songs s
+        INNER JOIN song_engagements e ON CAST(s.id AS TEXT) = e.song_id
+        WHERE e.last_played_timestamp > 0
+        ORDER BY e.last_played_timestamp DESC
+        LIMIT 1
+    """)
+    suspend fun getLastPlayedSong(): SongEntity?
+
+    @Query("""
+        SELECT * FROM songs
+        WHERE id != :songId
+          AND (
+            artist_id = (SELECT artist_id FROM songs WHERE id = :songId)
+            OR album_id = (SELECT album_id FROM songs WHERE id = :songId)
+            OR (genre IS NOT NULL AND genre = (SELECT genre FROM songs WHERE id = :songId))
+          )
+        ORDER BY RANDOM()
+        LIMIT :limit
+    """)
+    suspend fun getRelatedSongs(songId: Long, limit: Int): List<SongEntity>
+
+    /** Used by FavoriteArtistReleasesViewModel — returns empty when no YT artist JSON. */
+    @Query("SELECT artists_json FROM songs WHERE is_favorite = 1 AND artists_json IS NOT NULL LIMIT 50")
+    suspend fun getFavoriteSongsArtistsJson(): List<String>
+
+    @Query("""
+        SELECT s.artists_json FROM songs s
+        INNER JOIN song_engagements e ON CAST(s.id AS TEXT) = e.song_id
+        WHERE s.artists_json IS NOT NULL AND e.play_count > 0
+        ORDER BY e.play_count DESC
+        LIMIT 50
+    """)
+    suspend fun getMostPlayedYoutubeArtistsJson(): List<String>
+
+
+
+    @Query("SELECT * FROM songs WHERE artist_name LIKE '%' || :artistName || '%' ORDER BY RANDOM() LIMIT :limit")
+    suspend fun getSongsByArtistName(artistName: String, limit: Int = 5): List<SongEntity>
+
+    /** Convenience overload used by AutoQueueManager (matches PixelMusic). */
+    @Query("SELECT * FROM songs WHERE genre = :genre AND id != :excludeId ORDER BY RANDOM() LIMIT :limit")
+    suspend fun getSongsByGenre(genre: String, excludeId: Long = 0, limit: Int = 10): List<SongEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertRelatedSongMaps(maps: List<RelatedSongMap>)
+
+    @Query("""
+        UPDATE songs SET file_path = :filePath, parent_directory_path = :parentPath
+        WHERE id = :songId
+    """)
+    suspend fun updateSongFilePathAndParent(songId: Long, filePath: String, parentPath: String)
+
+
+    @Query("""
+        SELECT * FROM songs
+        WHERE id != :songId AND (
+            artist_id = :artistId
+            OR album_id = :albumId
+            OR (genre IS NOT NULL AND genre = :genre)
+        )
+        ORDER BY RANDOM()
+        LIMIT :limit
+    """)
+    suspend fun getLocalRelatedSongs(
+        songId: Long,
+        artistId: Long,
+        albumId: Long,
+        genre: String?,
+        limit: Int = 10
+    ): List<SongEntity>
+
 }

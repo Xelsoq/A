@@ -78,6 +78,20 @@ data class AdvancedPerformanceDiagnosticsSettings(
 }
 
 @Singleton
+
+enum class PlayerStreamClient {
+    ANDROID_VR,
+    WEB_REMIX,
+}
+
+enum class QuickPicks {
+    QUICK_PICKS, LAST_LISTEN, DONT_SHOW
+}
+
+enum class QuickPicksDisplayMode {
+    CARD, LIST
+}
+
 class UserPreferencesRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val json: Json
@@ -246,6 +260,15 @@ class UserPreferencesRepository @Inject constructor(
         val REPLAYGAIN_USE_ALBUM_GAIN = booleanPreferencesKey("replaygain_use_album_gain")
         val PAUSE_ON_VOLUME_ZERO = booleanPreferencesKey("pause_on_volume_zero")
         val SHOW_SCROLLBAR = booleanPreferencesKey("show_scrollbar")
+        val DISCOVER = stringPreferencesKey("discover")
+        val QUICK_PICKS_DISPLAY_MODE = stringPreferencesKey("quick_picks_display_mode")
+        val PURE_YT_MUSIC_ONLY = booleanPreferencesKey("pure_yt_music_only")
+        val CONTENT_COUNTRY = stringPreferencesKey("content_country")
+        val PLAYER_STREAM_CLIENT = stringPreferencesKey("player_stream_client")
+        val STREAMING_AUDIO_QUALITY_WIFI = stringPreferencesKey("streaming_audio_quality_wifi")
+        val STREAMING_AUDIO_QUALITY_MOBILE = stringPreferencesKey("streaming_audio_quality_mobile")
+        val FORCE_HIGH_QUALITY_ON_MOBILE = booleanPreferencesKey("force_high_quality_on_mobile")
+        val SUBSCRIBED_ARTIST_IDS = stringSetPreferencesKey("subscribed_artist_ids")
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────
@@ -1100,7 +1123,7 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
     }
 
     val immersiveLyricsEnabledFlow: Flow<Boolean> =
-        pref { it[PreferencesKeys.IMMERSIVE_LYRICS_ENABLED] ?: false }
+        pref { it[PreferencesKeys.IMMERSIVE_LYRICS_ENABLED] ?: true }
 
     suspend fun setImmersiveLyricsEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IMMERSIVE_LYRICS_ENABLED] = enabled }
@@ -1114,7 +1137,7 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
     }
 
     val useAnimatedLyricsFlow: Flow<Boolean> =
-        pref { it[PreferencesKeys.USE_ANIMATED_LYRICS] ?: false }
+        pref { it[PreferencesKeys.USE_ANIMATED_LYRICS] ?: true }
 
     suspend fun setUseAnimatedLyrics(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.USE_ANIMATED_LYRICS] = enabled }
@@ -1360,6 +1383,125 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
             }
         }
     }
+
+
+
+
+    val streamingAudioQualityWifiFlow: Flow<StreamingAudioQuality> =
+        dataStore.data.map { preferences ->
+            StreamingAudioQuality.fromName(preferences[PreferencesKeys.STREAMING_AUDIO_QUALITY_WIFI])
+        }.distinctUntilChanged()
+
+    suspend fun setStreamingAudioQualityWifi(quality: StreamingAudioQuality) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.STREAMING_AUDIO_QUALITY_WIFI] = quality.name
+        }
+    }
+
+    val streamingAudioQualityMobileFlow: Flow<StreamingAudioQuality> =
+        dataStore.data.map { preferences ->
+            StreamingAudioQuality.fromName(preferences[PreferencesKeys.STREAMING_AUDIO_QUALITY_MOBILE])
+        }.distinctUntilChanged()
+
+    suspend fun setStreamingAudioQualityMobile(quality: StreamingAudioQuality) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.STREAMING_AUDIO_QUALITY_MOBILE] = quality.name
+        }
+    }
+
+    val forceHighQualityOnMobileFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.FORCE_HIGH_QUALITY_ON_MOBILE] ?: false
+        }.distinctUntilChanged()
+
+    suspend fun setForceHighQualityOnMobile(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.FORCE_HIGH_QUALITY_ON_MOBILE] = enabled
+        }
+    }
+
+    val subscribedArtistIdsFlow: Flow<Set<String>> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.SUBSCRIBED_ARTIST_IDS] ?: emptySet()
+        }.distinctUntilChanged()
+
+    suspend fun subscribeArtist(artistId: String, subscribe: Boolean) {
+        dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.SUBSCRIBED_ARTIST_IDS] ?: emptySet()
+            if (subscribe) {
+                preferences[PreferencesKeys.SUBSCRIBED_ARTIST_IDS] = current + artistId
+            } else {
+                preferences[PreferencesKeys.SUBSCRIBED_ARTIST_IDS] = current - artistId
+            }
+        }
+    }
+
+    val pureYtMusicOnlyFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.PURE_YT_MUSIC_ONLY] ?: false
+        }.distinctUntilChanged()
+
+    suspend fun setPureYtMusicOnly(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PURE_YT_MUSIC_ONLY] = enabled
+        }
+    }
+
+    val contentCountryFlow: Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.CONTENT_COUNTRY] ?: "US"
+        }.distinctUntilChanged()
+
+    suspend fun setContentCountry(country: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CONTENT_COUNTRY] = country
+        }
+    }
+
+    val playerStreamClientFlow: Flow<PlayerStreamClient> =
+        dataStore.data.map { preferences ->
+            val name = preferences[PreferencesKeys.PLAYER_STREAM_CLIENT] ?: PlayerStreamClient.ANDROID_VR.name
+            try { PlayerStreamClient.valueOf(name) } catch (_: Exception) { PlayerStreamClient.ANDROID_VR }
+        }.distinctUntilChanged()
+
+    suspend fun setPlayerStreamClient(client: PlayerStreamClient) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PLAYER_STREAM_CLIENT] = client.name
+        }
+    }
+
+    val discoverFlow: Flow<QuickPicks> =
+        dataStore.data.map { preferences ->
+            val stored = preferences[PreferencesKeys.DISCOVER]
+            try {
+                if (stored != null) QuickPicks.valueOf(stored) else QuickPicks.QUICK_PICKS
+            } catch (e: Exception) {
+                QuickPicks.QUICK_PICKS
+            }
+        }.distinctUntilChanged()
+
+    suspend fun setDiscover(discover: QuickPicks) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER] = discover.name
+        }
+    }
+
+    val quickPicksDisplayModeFlow: Flow<QuickPicksDisplayMode> =
+        dataStore.data.map { preferences ->
+            val stored = preferences[PreferencesKeys.QUICK_PICKS_DISPLAY_MODE]
+            try {
+                if (stored != null) QuickPicksDisplayMode.valueOf(stored) else QuickPicksDisplayMode.CARD
+            } catch (e: Exception) {
+                QuickPicksDisplayMode.CARD
+            }
+        }.distinctUntilChanged()
+
+    suspend fun setQuickPicksDisplayMode(mode: QuickPicksDisplayMode) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.QUICK_PICKS_DISPLAY_MODE] = mode.name
+        }
+    }
+
 
     // ─── Companion ────────────────────────────────────────────────────────────
 

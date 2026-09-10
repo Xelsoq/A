@@ -43,6 +43,7 @@ import com.xelsoq.musicfy.presentation.screens.EasterEggScreen
 import com.xelsoq.musicfy.presentation.screens.ExperimentalSettingsScreen
 import com.xelsoq.musicfy.presentation.screens.GenreDetailScreen
 import com.xelsoq.musicfy.presentation.screens.HomeScreen
+import com.xelsoq.musicfy.presentation.screens.QuickPicksAllScreen
 import com.xelsoq.musicfy.presentation.screens.LibraryScreen
 import com.xelsoq.musicfy.presentation.screens.MashupScreen
 import com.xelsoq.musicfy.presentation.screens.NavBarCornerRadiusScreen
@@ -235,6 +236,9 @@ fun AppNavigation(
                         },
                         onOpenJellyfinDashboard = {
                             navController.navigateSafely(Screen.JellyfinDashboard.route)
+                        },
+                        onOpenYoutubeAuth = {
+                            navController.navigateSafely(Screen.YoutubeAuth.route)
                         }
                     )
                 }
@@ -501,6 +505,26 @@ fun AppNavigation(
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                     com.xelsoq.musicfy.presentation.jellyfin.dashboard.JellyfinDashboardScreen(
                         onBack = { navController.popBackStack() }
+                    )
+                }
+            }
+
+            composable(
+                Screen.YoutubeAuth.route,
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.xelsoq.musicfy.presentation.screens.youtube.AuthScreen(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
+            composable(
+                Screen.QuickPicksAll.route,
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    QuickPicksAllScreen(
+                        navController = navController,
+                        playerViewModel = playerViewModel
                     )
                 }
             }

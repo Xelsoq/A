@@ -234,10 +234,10 @@ class DualPlayerEngine @Inject constructor(
         private const val POST_TRANSITION_OFFLOAD_GUARD_MS = 2_000L
         private const val MAX_AUXILIARY_TIMELINE_ITEMS = 200
         private val LOCAL_MEDIA_SCHEMES = setOf("content", "file", "android.resource")
-        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive")
+        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive", "youtube")
         // Subset of REMOTE_MEDIA_SCHEMES: schemes that need proxy resolution.
         // http/https resolve directly and must NOT enter the resolvedUriCache lookup path.
-        private val CLOUD_PROXY_SCHEMES = setOf("telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive")
+        private val CLOUD_PROXY_SCHEMES = setOf("telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive", "youtube")
     }
 
     data class TransitionTarget(
@@ -1204,6 +1204,7 @@ class DualPlayerEngine @Inject constructor(
             "navidrome" -> resolveNavidromeUriAsync(uriString)
             "jellyfin" -> resolveJellyfinUriAsync(uriString)
             "gdrive" -> resolveGDriveUriAsync(uriString)
+            "youtube" -> resolveYoutubeUriAsync(uriString)
             else -> null
         }
 
@@ -1258,6 +1259,25 @@ class DualPlayerEngine @Inject constructor(
         if (!jellyfinStreamProxy.ensureReady(5_000L)) return@withContext null
         jellyfinStreamProxy.warmUpStreamUrl(uriString)
         jellyfinStreamProxy.resolveJellyfinUri(uriString)?.toUri()
+    }
+
+
+    private suspend fun resolveYoutubeUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
+        try {
+            val youtubeId = uriString.substringAfter("youtube://")
+            val youtubeSong = com.xelsoq.musicfy.data.model.youtube.Song(youtubeId = youtubeId)
+            val path = com.xelsoq.musicfy.data.remote.youtube.YoutubeHelper
+                .getSongPlayerUrl(context, youtubeSong, allowLocal = true)
+            if (!path.startsWith("http")) {
+                com.xelsoq.musicfy.data.remote.youtube.YoutubeHelper
+                    .registerLocalFilePath(youtubeId, path)
+                return@withContext Uri.fromFile(java.io.File(path))
+            }
+            Uri.parse(path)
+        } catch (e: Exception) {
+            Timber.tag("DualPlayerEngine").e(e, "resolveYoutubeUriAsync failed for $uriString")
+            null
+        }
     }
 
     private suspend fun resolveGDriveUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {

@@ -12,7 +12,7 @@ import com.google.common.collect.ImmutableList
 
 /**
  * Wraps Media3's default provider and marks playback notifications as local-only
- * so they don't get bridged to Wear OS as generic remote media controls.
+ * so they don't get bridged to other devices as generic remote media controls.
  */
 @UnstableApi
 class LocalOnlyMediaNotificationProvider(

@@ -245,8 +245,6 @@ import com.xelsoq.musicfy.presentation.components.ExpressiveScrollBar
 import com.xelsoq.musicfy.ui.theme.LocalShowScrollbar
 import com.xelsoq.musicfy.presentation.components.LibrarySortBottomSheet
 import com.xelsoq.musicfy.presentation.components.subcomps.EnhancedSongListItem
-import com.xelsoq.musicfy.data.service.wear.PhoneWatchTransferState
-import com.xelsoq.musicfy.shared.WearTransferProgress
 import java.io.File
 import kotlin.math.abs
 
@@ -261,129 +259,6 @@ private const val FOLDER_NAVIGATION_BACKWARD = -1
 private const val PULL_REFRESH_MIN_VISIBLE_MS = 900L
 private const val PULL_REFRESH_MAX_VISIBLE_MS = 1_500L
 private const val INLINE_SYNC_MIN_VISIBLE_MS = 600L
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun WatchTransferProgressDialog(
-    transfer: PhoneWatchTransferState,
-    onDismiss: () -> Unit,
-    onCancelTransfer: () -> Unit,
-) {
-    val context = LocalContext.current
-    val startingTransfer = stringResource(R.string.watch_transfer_status_starting)
-    val preparingTransfer = stringResource(R.string.watch_transfer_status_preparing_transfer)
-    val animatedProgress by animateFloatAsState(
-        targetValue = transfer.progress.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = 300),
-        label = "WatchTransferProgressDialog"
-    )
-    val progressPercent = (animatedProgress * 100f).toInt().coerceIn(0, 100)
-    val bytesText = if (transfer.totalBytes > 0L) {
-        val sent = Formatter.formatFileSize(context, transfer.bytesTransferred)
-        val total = Formatter.formatFileSize(context, transfer.totalBytes)
-        stringResource(R.string.watch_transfer_bytes_progress, sent, total)
-    } else {
-        startingTransfer
-    }
-    val statusText = when (transfer.status) {
-        WearTransferProgress.STATUS_TRANSFERRING -> stringResource(R.string.watch_transfer_status_transferring)
-        WearTransferProgress.STATUS_COMPLETED -> stringResource(R.string.watch_transfer_status_completed)
-        WearTransferProgress.STATUS_FAILED -> stringResource(R.string.watch_transfer_status_failed)
-        WearTransferProgress.STATUS_CANCELLED -> stringResource(R.string.watch_transfer_status_cancelled)
-        else -> stringResource(R.string.watch_transfer_status_preparing)
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true
-        )
-    ) {
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            tonalElevation = 6.dp,
-            color = MaterialTheme.colorScheme.surface
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = stringResource(R.string.watch_transfer_dialog_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Box(
-                    modifier = Modifier
-                        .size(96.dp)
-                        .padding(vertical = 20.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    LoadingIndicator(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .scale(1.84f),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = stringResource(R.string.common_percentage_text, progressPercent),
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontSize = MaterialTheme.typography.labelLarge.fontSize * 1.4f
-                        ),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-                LinearWavyProgressIndicator(
-                    progress = { animatedProgress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(50)),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                )
-                Text(
-                    text = transfer.songTitle.ifBlank { preparingTransfer },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = stringResource(R.string.watch_transfer_bullet_step, statusText, bytesText),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-                transfer.error?.takeIf { it.isNotBlank() }?.let { errorText ->
-                    Text(
-                        text = errorText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center
-                    )
-                }
-                Button(
-                    modifier = Modifier.padding(top = 4.dp),
-                    onClick = onCancelTransfer,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    )
-                ) {
-                    Text(text = stringResource(R.string.watch_transfer_action_cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        }
-    }
-}
 
 private data class LibraryScreenPlayerProjection(
     val currentFolder: MusicFolder? = null,
@@ -483,9 +358,6 @@ fun LibraryScreen(
         }
     }
     val isSortSheetVisible by playerViewModel.isSortingSheetVisible.collectAsStateWithLifecycle()
-    val isSendingToWatch by songInfoBottomSheetViewModel.isSendingToWatch.collectAsStateWithLifecycle()
-    val activeWatchTransfer by songInfoBottomSheetViewModel.activeWatchTransfer.collectAsStateWithLifecycle()
-    var showWatchTransferDialog by remember { mutableStateOf(false) }
     val canNavigateBackInFolders by remember(playerViewModel) {
         playerViewModel.playerUiState
             .map { uiState -> uiState.currentFolder != null && uiState.folderBackGestureNavigationEnabled }
@@ -507,12 +379,6 @@ fun LibraryScreen(
 
     var showReorderTabsSheet by remember { mutableStateOf(false) }
     var showTabSwitcherSheet by remember { mutableStateOf(false) }
-
-    LaunchedEffect(activeWatchTransfer?.requestId) {
-        if (activeWatchTransfer == null) {
-            showWatchTransferDialog = false
-        }
-    }
 
     // Multi-selection state
     val multiSelectionState = playerViewModel.multiSelectionStateHolder
@@ -851,10 +717,9 @@ fun LibraryScreen(
                                 modifier = Modifier,
                                 title = currentTabTitle,
                                 isExpanded = showTabSwitcherSheet,
-                                showIcon = !isSendingToWatch,
+                                showIcon = true,
                                 iconRes = currentTab.iconRes(),
                                 pageIndex = pagerState.currentPage,
-                                compressForWatchTransfer = isSendingToWatch,
                                 onClick = {
                                     showTabSwitcherSheet = true
                                 },
@@ -873,41 +738,6 @@ fun LibraryScreen(
                         }
                     },
                     actions = {
-                        if (isSendingToWatch) {
-                            val watchTransferProgress = activeWatchTransfer?.progress ?: 0f
-                            val watchTransferPercent = (watchTransferProgress * 100f).toInt().coerceIn(0, 100)
-                            Surface(
-                                modifier = Modifier
-                                    .padding(end = 8.dp)
-                                    .wrapContentWidth()
-                                    .height(40.dp)
-                                    .clip(CircleShape)
-                                    .clickable(enabled = activeWatchTransfer != null) {
-                                        showWatchTransferDialog = true
-                                    },
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .padding(horizontal = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.rounded_watch_arrow_down_24),
-                                        contentDescription = stringResource(R.string.library_cd_watch_transfer),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.common_percentage_text, watchTransferPercent),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
                         FilledIconButton(
                             modifier = Modifier.padding(end = 14.dp),
                             colors = IconButtonDefaults.filledIconButtonColors(
@@ -1818,18 +1648,6 @@ fun LibraryScreen(
         }
     )
 
-    if (showWatchTransferDialog && activeWatchTransfer != null) {
-        val currentWatchTransfer = activeWatchTransfer!!
-        WatchTransferProgressDialog(
-            transfer = currentWatchTransfer,
-            onDismiss = { showWatchTransferDialog = false },
-            onCancelTransfer = {
-                songInfoBottomSheetViewModel.cancelWatchTransfer(currentWatchTransfer.requestId)
-                showWatchTransferDialog = false
-            }
-        )
-    }
-
     if (showSongInfoBottomSheet && selectedSongForInfo != null) {
         val currentSong = selectedSongForInfo
         val isFavorite = remember(currentSong?.id, favoriteIds) { derivedStateOf { currentSong?.let {
@@ -2334,7 +2152,7 @@ fun LibraryNavigationPill(
     iconRes: Int,
     showIcon: Boolean = true,
     pageIndex: Int,
-    compressForWatchTransfer: Boolean,
+    forceCompress: Boolean = false,
     onClick: () -> Unit,
     onArrowClick: () -> Unit
 ) {
@@ -2358,7 +2176,7 @@ fun LibraryNavigationPill(
         label = "ArrowCornerAnimation"
     )
     val compressionProgress by animateFloatAsState(
-        targetValue = if (compressForWatchTransfer) 1f else 0f,
+        targetValue = if (forceCompress) 1f else 0f,
         label = "LibraryPillCompression"
     )
 

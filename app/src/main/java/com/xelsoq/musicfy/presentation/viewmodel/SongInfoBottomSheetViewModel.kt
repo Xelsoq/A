@@ -17,10 +17,6 @@ import com.xelsoq.musicfy.data.database.MusicDao
 import com.xelsoq.musicfy.data.database.toArtist
 import com.xelsoq.musicfy.data.model.Artist
 import com.xelsoq.musicfy.data.model.Song
-import com.xelsoq.musicfy.data.service.wear.PhoneWatchTransferState
-import com.xelsoq.musicfy.data.service.wear.PhoneWatchTransferStateStore
-import com.xelsoq.musicfy.data.service.wear.WearPhoneTransferSender
-import com.xelsoq.musicfy.shared.WearTransferProgress
 import com.xelsoq.musicfy.utils.AudioMeta
 import com.xelsoq.musicfy.utils.AudioMetaUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -29,14 +25,8 @@ import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -44,8 +34,6 @@ import kotlin.coroutines.resume
 
 @HiltViewModel
 class SongInfoBottomSheetViewModel @Inject constructor(
-    private val wearPhoneTransferSender: WearPhoneTransferSender,
-    private val transferStateStore: PhoneWatchTransferStateStore,
     private val musicDao: MusicDao,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
@@ -71,40 +59,6 @@ class SongInfoBottomSheetViewModel @Inject constructor(
     private val _audioMeta = MutableStateFlow<AudioMeta?>(null)
     private val _resolvedArtists = MutableStateFlow<List<Artist>>(emptyList())
     val resolvedArtists: StateFlow<List<Artist>> = _resolvedArtists.asStateFlow()
-    private val _isMusicfyWatchAvailable = MutableStateFlow(false)
-    val isMusicfyWatchAvailable: StateFlow<Boolean> = _isMusicfyWatchAvailable.asStateFlow()
-    private val _isWatchAvailabilityResolved = MutableStateFlow(false)
-    val isWatchAvailabilityResolved: StateFlow<Boolean> = _isWatchAvailabilityResolved.asStateFlow()
-    private val _isRefreshingWatchAvailability = MutableStateFlow(false)
-
-    private val _isRequestingToWatch = MutableStateFlow(false)
-    val watchTransfers: StateFlow<Map<String, PhoneWatchTransferState>> = transferStateStore.transfers
-    val watchSongIds: StateFlow<Set<String>> = transferStateStore.watchSongIds
-    val reachableWatchNodeIds: StateFlow<Set<String>> = transferStateStore.reachableWatchNodeIds
-    val isWatchLibraryResolved: StateFlow<Boolean> = transferStateStore.isWatchLibraryResolved
-    val activeWatchTransfer: StateFlow<PhoneWatchTransferState?> = watchTransfers
-        .map { transfers ->
-            transfers.values
-                .asSequence()
-                .filter { it.status == WearTransferProgress.STATUS_TRANSFERRING }
-                .maxByOrNull { it.updatedAtMillis }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000L),
-            initialValue = null,
-        )
-    val isSendingToWatch: StateFlow<Boolean> = combine(
-        _isRequestingToWatch,
-        activeWatchTransfer
-    ) { isRequesting, activeTransfer ->
-        isRequesting || activeTransfer != null
-    }.distinctUntilChanged()
-        .stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000L),
-        initialValue = false,
-    )
 
     val audioMeta: StateFlow<AudioMeta?> = _audioMeta.asStateFlow()
 
@@ -158,72 +112,6 @@ class SongInfoBottomSheetViewModel @Inject constructor(
         }
     }
 
-    fun refreshWatchAvailability() {
-        if (_isRefreshingWatchAvailability.value) return
-
-        viewModelScope.launch {
-            _isRefreshingWatchAvailability.value = true
-            val available = wearPhoneTransferSender.isMusicfyWatchAvailable()
-            _isMusicfyWatchAvailable.value = available
-            _isWatchAvailabilityResolved.value = true
-            _isRefreshingWatchAvailability.value = false
-            if (available) {
-                viewModelScope.launch {
-                    wearPhoneTransferSender.refreshWatchLibraryState()
-                }
-            }
-        }
-    }
-
-    fun isLocalSongForWatchTransfer(song: Song): Boolean {
-        if (getCloudProviderLabel(song.contentUriString) != null) return false
-
-        if (song.path.isNotBlank()) {
-            return File(song.path).exists()
-        }
-
-        val uri = song.contentUriString
-        return uri.startsWith("content://") || uri.startsWith("file://")
-    }
-
-    fun sendSongToWatch(song: Song, onComplete: (String) -> Unit) {
-        if (_isRequestingToWatch.value) return
-
-        viewModelScope.launch {
-            if (!isLocalSongForWatchTransfer(song)) {
-                onComplete("Only local songs can be sent to watch")
-                return@launch
-            }
-            if (!_isMusicfyWatchAvailable.value) {
-                onComplete("No reachable watch with Musicfy")
-                refreshWatchAvailability()
-                return@launch
-            }
-            if (transferStateStore.isSongSavedOnAllReachableWatches(song.id)) {
-                onComplete(WearTransferProgress.ERROR_ALREADY_ON_WATCH)
-                return@launch
-            }
-
-            _isRequestingToWatch.update { true }
-            val result = wearPhoneTransferSender.requestSongTransfer(song.id, song.title)
-            _isRequestingToWatch.update { false }
-
-            if (result.isSuccess) {
-                val nodeCount = result.getOrNull() ?: 1
-                onComplete(
-                    if (nodeCount > 1) {
-                        "Transfer requested on $nodeCount watches"
-                    } else {
-                        "Transfer requested on watch"
-                    }
-                )
-            } else {
-                onComplete(result.exceptionOrNull()?.message ?: "Failed to request transfer")
-                refreshWatchAvailability()
-            }
-        }
-    }
-
     fun hasSystemWritePermission(): Boolean {
         return Settings.System.canWrite(appContext)
     }
@@ -241,17 +129,6 @@ class SongInfoBottomSheetViewModel @Inject constructor(
             }
             onComplete(result)
         }
-    }
-
-    fun cancelWatchTransfer(requestId: String) {
-        if (requestId.isBlank()) return
-        viewModelScope.launch {
-            wearPhoneTransferSender.cancelTransfer(requestId)
-        }
-    }
-
-    fun isSongSavedOnAllReachableWatches(songId: String): Boolean {
-        return transferStateStore.isSongSavedOnAllReachableWatches(songId)
     }
 
     fun isSongEditable(song: Song): Boolean {

@@ -64,6 +64,9 @@ class ConnectivityStateHolder @Inject constructor(
     private val _isOnline = MutableStateFlow(false)
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
+    private val _isMeteredNetwork = MutableStateFlow(true)
+    val isMeteredNetwork: StateFlow<Boolean> = _isMeteredNetwork.asStateFlow()
+
     // Bluetooth State
     private val _isBluetoothEnabled = MutableStateFlow(false)
     val isBluetoothEnabled: StateFlow<Boolean> = _isBluetoothEnabled.asStateFlow()
@@ -135,6 +138,7 @@ class ConnectivityStateHolder @Inject constructor(
             updateWifiInfo()
         }
         
+        _isMeteredNetwork.value = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true
         _isOnline.value = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
                 capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 
@@ -179,6 +183,10 @@ class ConnectivityStateHolder @Inject constructor(
             
             private fun checkConnectivity() {
                 _isOnline.value = availableNetworks.isNotEmpty()
+                val active = connectivityManager.activeNetwork
+                val caps = connectivityManager.getNetworkCapabilities(active)
+                // NOT_METERED capability means unmetered (WiFi typically)
+                _isMeteredNetwork.value = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true
             }
         }
         

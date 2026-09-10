@@ -8,6 +8,8 @@ import com.xelsoq.musicfy.data.navidrome.NavidromeRepository
 import com.xelsoq.musicfy.data.netease.NeteaseRepository
 import com.xelsoq.musicfy.data.qqmusic.QqMusicRepository
 import com.xelsoq.musicfy.data.repository.MusicRepository
+import com.xelsoq.musicfy.data.remote.youtube.DatastoreRepository
+import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
 import com.xelsoq.musicfy.data.telegram.TelegramRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -28,7 +30,8 @@ enum class ExternalServiceAccount {
     NETEASE,
     QQ_MUSIC,
     NAVIDROME,
-    JELLYFIN
+    JELLYFIN,
+    YOUTUBE
 }
 
 data class ExternalAccountUiModel(
@@ -52,7 +55,8 @@ class AccountsViewModel @Inject constructor(
     private val neteaseRepository: NeteaseRepository,
     private val qqMusicRepository: QqMusicRepository,
     private val navidromeRepository: NavidromeRepository,
-    private val jellyfinRepository: JellyfinRepository
+    private val jellyfinRepository: JellyfinRepository,
+    private val youtubeDatastoreRepository: DatastoreRepository
 ) : ViewModel() {
 
     private val loggingOutServices = MutableStateFlow<Set<ExternalServiceAccount>>(emptySet())
@@ -101,6 +105,13 @@ class AccountsViewModel @Inject constructor(
         connected to playlistCount
     }
 
+
+    private val youtubeStateFlow = youtubeDatastoreRepository.cookies.map { cookies ->
+        val raw = cookies.toRawCookie()
+        val connected = raw.isNotBlank() && (raw.contains("SAPISID") || raw.contains("__Secure-3PAPISID"))
+        connected to 0
+    }
+
     val uiState: StateFlow<AccountsUiState> = combine(
         combine(
             listOf(
@@ -109,7 +120,8 @@ class AccountsViewModel @Inject constructor(
                 neteaseStateFlow,
                 qqMusicStateFlow,
                 navidromeStateFlow,
-                jellyfinStateFlow
+                jellyfinStateFlow,
+                youtubeStateFlow
             )
         ) { it.toList() },
         loggingOutServices
@@ -120,6 +132,7 @@ class AccountsViewModel @Inject constructor(
         val (qqConnected, qqPlaylistCount) = states[3] as Pair<Boolean, Int>
         val (navidromeConnected, navidromePlaylistCount) = states[4] as Pair<Boolean, Int>
         val (jellyfinConnected, jellyfinPlaylistCount) = states[5] as Pair<Boolean, Int>
+        val (youtubeConnected, _) = states[6] as Pair<Boolean, Int>
 
         val connectedAccounts = buildList {
             if (telegramConnected) {
@@ -224,6 +237,19 @@ class AccountsViewModel @Inject constructor(
                     )
                 )
             }
+
+            if (youtubeConnected) {
+                add(
+                    ExternalAccountUiModel(
+                        service = ExternalServiceAccount.YOUTUBE,
+                        title = "YouTube Music",
+                        accountLabel = "YouTube Music account connected",
+                        syncedContentLabel = "Streaming catalog",
+                        isLoggingOut = ExternalServiceAccount.YOUTUBE in activeLogouts
+                    )
+                )
+            }
+
         }
 
         val disconnectedServices = buildList {
@@ -233,6 +259,7 @@ class AccountsViewModel @Inject constructor(
             if (!qqConnected) add(ExternalServiceAccount.QQ_MUSIC)
             if (!navidromeConnected) add(ExternalServiceAccount.NAVIDROME)
             if (!jellyfinConnected) add(ExternalServiceAccount.JELLYFIN)
+            if (!youtubeConnected) add(ExternalServiceAccount.YOUTUBE)
         }
 
         AccountsUiState(
@@ -259,6 +286,12 @@ class AccountsViewModel @Inject constructor(
                         ExternalServiceAccount.QQ_MUSIC -> qqMusicRepository.logout()
                         ExternalServiceAccount.NAVIDROME -> navidromeRepository.logout()
                         ExternalServiceAccount.JELLYFIN -> jellyfinRepository.logout()
+                        ExternalServiceAccount.YOUTUBE -> {
+                            youtubeDatastoreRepository.saveCookies(com.xelsoq.musicfy.data.model.youtube.Cookies(""))
+                            youtubeDatastoreRepository.saveDataSyncId("")
+                            YouTube.cookie = null
+                            YouTube.dataSyncId = null
+                        }
                     }
                 }
             } finally {

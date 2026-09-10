@@ -77,10 +77,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import com.xelsoq.musicfy.data.preferences.ThemePreference
 import com.xelsoq.musicfy.data.service.auto.AutoMediaBrowseTree
-import com.xelsoq.musicfy.data.service.wear.buildWearThemePalette
-import com.xelsoq.musicfy.data.service.wear.WearStatePublisher
 import com.xelsoq.musicfy.presentation.viewmodel.ColorSchemePair
-import com.xelsoq.musicfy.shared.WearIntents
 import com.xelsoq.musicfy.utils.ArtworkTransportSanitizer
 import com.xelsoq.musicfy.utils.MediaItemBuilder
 import com.xelsoq.musicfy.data.navidrome.NavidromeRepository
@@ -160,8 +157,6 @@ class MusicService : MediaLibraryService() {
     @Inject
     lateinit var autoMediaBrowseTree: AutoMediaBrowseTree
     @Inject
-    lateinit var wearStatePublisher: WearStatePublisher
-    @Inject
     lateinit var replayGainManager: com.xelsoq.musicfy.data.media.ReplayGainManager
     @Inject
     lateinit var navidromeRepository: NavidromeRepository
@@ -211,16 +206,14 @@ class MusicService : MediaLibraryService() {
             requestWidgetUpdate = { force -> widgetUpdateManager.requestFullUpdate(force) },
         )
     }
-    // Glance widget + Wear OS update pipeline, extracted to a standalone manager.
-    // State assembly (buildPlayerInfo / resolveCurrentMediaIdForWear) stays here and
-    // is supplied as callbacks; the manager owns debounce, diffing and rendering.
+    // Glance widget update pipeline, extracted to a standalone manager.
+    // State assembly (buildPlayerInfo) stays here and is supplied as a callback;
+    // the manager owns debounce, diffing and rendering.
     private val widgetUpdateManager by lazy {
         WidgetUpdateManager(
             context = applicationContext,
             scope = serviceScope,
-            wearStatePublisher = wearStatePublisher,
             buildPlayerInfo = { buildPlayerInfo() },
-            resolveCurrentMediaIdForWear = { resolveCurrentMediaIdForWear() },
         )
     }
     private var playbackSnapshotPersistJob: Job? = null
@@ -271,21 +264,6 @@ class MusicService : MediaLibraryService() {
         private val pendingMediaButtonForegroundStarts = AtomicInteger(0)
 
         private const val APP_PACKAGE_PREFIX = "com.xelsoq.musicfy"
-        private val BLOCKED_WEAR_CONTROLLER_PREFIXES = listOf(
-            "com.google.android.wearable",
-            "com.google.android.clockwork",
-            "com.google.android.apps.wearable",
-            "com.google.android.apps.wear.companion",
-            "com.samsung.android.app.watchmanager",
-            "com.mobvoi.wear",
-        )
-        private val WEAR_HINT_KEY_MARKERS = listOf(
-            "wear",
-            "clockwork",
-            "companion",
-            "node",
-            "remote_device",
-        )
         private const val AUTO_CONTEXT_RECENT = "recent"
         private const val AUTO_CONTEXT_FAVORITES = "favorites"
         private const val AUTO_CONTEXT_ALL_SONGS = "all_songs"
@@ -568,14 +546,6 @@ class MusicService : MediaLibraryService() {
                     controller.controllerVersion,
                     hintKeys
                 )
-                if (shouldRejectWearController(controller)) {
-                    Timber.tag(TAG).i(
-                        "Rejecting Wear system controller connection from package=%s",
-                        controllerPackage
-                    )
-                    return MediaSession.ConnectionResult.reject()
-                }
-
                 val defaultResult = super.onConnect(session, controller)
                 val customCommands = listOf(
                     MusicNotificationProvider.CUSTOM_COMMAND_CLOSE_PLAYER,
@@ -600,21 +570,16 @@ class MusicService : MediaLibraryService() {
                     listOfNotNull(session.player.currentMediaItem)
                 )
 
-                // Diagnostics: record external controllers (Android Auto, Wear, other apps)
+                // Diagnostics: record external controllers (Android Auto, other apps)
                 // so the performance report can correlate lag with their artwork/queue demands.
                 if (!controllerPackage.startsWith(APP_PACKAGE_PREFIX)) {
                     val isAuto = controllerPackage.startsWith("com.google.android.projection.gearhead") ||
                         controllerPackage.startsWith("com.google.android.gms.car") ||
                         controllerPackage.startsWith("com.google.android.apps.automotive") ||
                         controller.connectionHints.keySet().any { it.contains("automotive", ignoreCase = true) }
-                    val isWear = BLOCKED_WEAR_CONTROLLER_PREFIXES.any { controllerPackage.startsWith(it) } ||
-                        controller.connectionHints.keySet().any { key ->
-                            WEAR_HINT_KEY_MARKERS.any { key.contains(it, ignoreCase = true) }
-                        }
                     PerformanceMetrics.recordControllerConnected(
                         packageName = controllerPackage,
                         isAndroidAuto = isAuto,
-                        isWear = isWear,
                         elapsedRealtimeMs = SystemClock.elapsedRealtime()
                     )
                 }
@@ -933,26 +898,6 @@ class MusicService : MediaLibraryService() {
         }
     }
 
-    private fun shouldRejectWearController(controller: MediaSession.ControllerInfo): Boolean {
-        val controllerPackage = controller.packageName
-        if (controllerPackage.startsWith(APP_PACKAGE_PREFIX)) {
-            return false
-        }
-        val blockedByPackage = BLOCKED_WEAR_CONTROLLER_PREFIXES.any { prefix ->
-            controllerPackage.startsWith(prefix)
-        }
-        if (blockedByPackage) {
-            return true
-        }
-
-        val hasWearHints = controller.connectionHints.keySet().any { key ->
-            WEAR_HINT_KEY_MARKERS.any { marker ->
-                key.contains(marker, ignoreCase = true)
-            }
-        }
-        return hasWearHints
-    }
-
     private fun createSleepTimerPendingIntent(): PendingIntent {
         val intent = Intent(this, SleepTimerReceiver::class.java).apply {
             action = ACTION_SLEEP_TIMER_EXPIRED
@@ -1000,7 +945,7 @@ class MusicService : MediaLibraryService() {
                     triggerAtMillis,
                     pendingIntent,
                 )
-            Timber.tag(TAG).d("Sleep timer set from Wear for %d minutes", minutes)
+            Timber.tag(TAG).d("Sleep timer set for %d minutes", minutes)
         } catch (e: SecurityException) {
             Timber.tag(TAG).w(e, "Exact alarm denied; using inexact sleep timer")
             alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
@@ -1010,7 +955,7 @@ class MusicService : MediaLibraryService() {
     private fun setEndOfTrackSleepTimer(enabled: Boolean) {
         if (!enabled) {
             endOfTrackTimerSongId = null
-            Timber.tag(TAG).d("End-of-track timer disabled from Wear")
+            Timber.tag(TAG).d("End-of-track timer disabled")
             return
         }
         cancelDurationSleepTimerInternal()
@@ -1021,13 +966,13 @@ class MusicService : MediaLibraryService() {
             return
         }
         endOfTrackTimerSongId = currentSongId
-        Timber.tag(TAG).d("End-of-track timer set from Wear for mediaId=%s", currentSongId)
+        Timber.tag(TAG).d("End-of-track timer set for mediaId=%s", currentSongId)
     }
 
     private fun cancelSleepTimers() {
         cancelDurationSleepTimerInternal()
         endOfTrackTimerSongId = null
-        Timber.tag(TAG).d("Sleep timers cancelled from Wear")
+        Timber.tag(TAG).d("Sleep timers cancelled")
     }
 
     private fun startTemporaryForegroundForCommand() {
@@ -1408,7 +1353,7 @@ class MusicService : MediaLibraryService() {
                         endOfTrackTimerSongId = null
                         engine.masterPlayer.seekTo(0L)
                         engine.masterPlayer.pause()
-                        Timber.tag(TAG).d("Paused playback at end of track from Wear timer")
+                        Timber.tag(TAG).d("Paused playback at end of track from sleep timer")
                     }
                 } else if (mediaItem?.mediaId != eotTargetSongId) {
                     endOfTrackTimerSongId = null
@@ -1502,7 +1447,6 @@ class MusicService : MediaLibraryService() {
         castSyncCoordinator.stop()
         unregisterHeadsetReconnectMonitor()
         unregisterSystemVolumeObserver()
-        wearStatePublisher.clearState()
         replayGainProcessor.cancel()
 
         engine.removePlayerSwapListener(playerSwapListener)
@@ -1853,7 +1797,7 @@ class MusicService : MediaLibraryService() {
     private fun getOpenAppPendingIntent(): PendingIntent {
         val intent = Intent(this, MainActivity::class.java).apply {
             setPackage(packageName)
-            action = WearIntents.ACTION_OPEN_PLAYER
+            action = "com.xelsoq.musicfy.action.OPEN_PLAYER"
             addCategory(Intent.CATEGORY_DEFAULT)
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("ACTION_SHOW_PLAYER", true) // Signal to MainActivity to show the player
@@ -1870,71 +1814,6 @@ class MusicService : MediaLibraryService() {
     private var followUpMediaSessionUiRefreshJob: Job? = null
     private var mediaSessionButtonRefreshJob: Job? = null
     private var lastAppliedMediaButtonSignature: String? = null
-
-    private suspend fun resolveCurrentMediaIdForWear(): String? {
-        val remoteSongId = castSyncCoordinator.resolveRemoteSnapshot()?.songId
-        if (!remoteSongId.isNullOrBlank()) {
-            return remoteSongId
-        }
-        val player = engine.masterPlayer
-        return withContext(Dispatchers.Main) { player.currentMediaItem?.mediaId }
-    }
-
-    private fun buildWearQueueRevision(
-        timeline: Timeline,
-        currentIndex: Int,
-        currentMediaId: String?,
-    ): String {
-        val remoteClient = castSyncCoordinator.currentRemoteMediaClient()
-        val remoteStatus = remoteClient?.mediaStatus
-        val remoteQueueItems = remoteStatus?.queueItems.orEmpty()
-        if (remoteQueueItems.isNotEmpty()) {
-            val remoteCurrentIndex = remoteQueueItems.indexOfFirst {
-                it.itemId == remoteStatus?.currentItemId
-            }.takeIf { it >= 0 } ?: 0
-            val remoteTokens = remoteQueueItems.map { item ->
-                item.customData
-                    ?.optString("songId")
-                    ?.takeIf { it.isNotBlank() }
-                    ?: item.media?.contentId
-                    ?: item.itemId.toString()
-            }
-            return encodeWearQueueRevision(remoteTokens, remoteStatus?.currentItemId ?: 0)
-        }
-
-        if (timeline.isEmpty) {
-            return currentMediaId.orEmpty()
-        }
-
-        val window = Timeline.Window()
-        val tokens = buildList(timeline.windowCount) {
-            for (index in 0 until timeline.windowCount) {
-                timeline.getWindow(index, window)
-                val mediaItem = window.mediaItem
-                add(
-                    mediaItem.mediaId.ifBlank {
-                        mediaItem.localConfiguration?.uri?.toString()
-                            ?: mediaItem.mediaMetadata.title?.toString()
-                            ?: index.toString()
-                    }
-                )
-            }
-        }
-        val safeCurrentIndex = currentIndex.coerceIn(0, (timeline.windowCount - 1).coerceAtLeast(0))
-        return encodeWearQueueRevision(tokens, safeCurrentIndex)
-    }
-
-    private fun encodeWearQueueRevision(queueTokens: List<String>, currentIndex: Int): String {
-        if (queueTokens.isEmpty()) return ""
-        return buildString {
-            append(currentIndex)
-            append('|')
-            queueTokens.forEachIndexed { index, token ->
-                if (index > 0) append(',')
-                append(token)
-            }
-        }.hashCode().toString()
-    }
 
     private suspend fun buildPlayerInfo(): PlayerInfo {
         val player = engine.masterPlayer
@@ -2062,15 +1941,8 @@ class MusicService : MediaLibraryService() {
                 darkPrevNextIcon = it.dark.primary.toArgb()
             )
         }
-        val wearThemePalette = schemePair?.let { buildWearThemePalette(it.dark) }
-
         val isFavorite = isSongFavorite(mediaId)
-        val lyrics = resolveWearLyrics(mediaId)
-        val wearQueueRevision = buildWearQueueRevision(
-            timeline = snapshotTimeline,
-            currentIndex = snapshotWindowIndex,
-            currentMediaId = mediaId,
-        )
+        val lyrics = resolveCurrentLyrics(mediaId)
 
         val queueItems = mutableListOf<com.xelsoq.musicfy.data.model.QueueItem>()
         // Reuse snapshotTimeline / snapshotWindowIndex captured at the top — no extra main-thread hop
@@ -2120,12 +1992,10 @@ class MusicService : MediaLibraryService() {
             themeColors = widgetColors,
             isShuffleEnabled = shuffleEnabled,
             repeatMode = repeatMode,
-            wearThemePalette = wearThemePalette,
-            wearQueueRevision = wearQueueRevision,
         )
     }
 
-    private suspend fun resolveWearLyrics(mediaId: String?): com.xelsoq.musicfy.data.model.Lyrics? {
+    private suspend fun resolveCurrentLyrics(mediaId: String?): com.xelsoq.musicfy.data.model.Lyrics? {
         val songId = mediaId?.takeIf { it.isNotBlank() } ?: return null
         return runCatching {
             withContext(Dispatchers.IO) {
@@ -2133,7 +2003,7 @@ class MusicService : MediaLibraryService() {
                 musicRepository.getStoredLyrics(song)?.first
             }
         }.getOrElse { error ->
-            Timber.tag(TAG).d(error, "Unable to resolve Wear lyrics for mediaId=%s", songId)
+            Timber.tag(TAG).d(error, "Unable to resolve lyrics for mediaId=%s", songId)
             null
         }
     }

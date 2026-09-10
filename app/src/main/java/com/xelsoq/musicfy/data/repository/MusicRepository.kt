@@ -167,6 +167,13 @@ interface MusicRepository {
      */
     fun getHomeMixPreviewSongs(limit: Int): Flow<List<Song>>
 
+    fun getQuickPicks(limit: Int = 20): Flow<List<Song>>
+    suspend fun getSongsByArtistName(artistName: String, limit: Int = 5): List<Song>
+    suspend fun getSongsByIdsOnce(songIds: List<String>): List<Song>
+    suspend fun getLastPlayedSong(): Song?
+    suspend fun getRelatedSongs(songId: Long, limit: Int = 10): List<Song>
+
+
     /**
      * Obtiene la lista completa de álbumes una sola vez.
      * @return Lista de objetos Album.

@@ -69,12 +69,14 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.LinearScale
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.BlurOff
+import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
@@ -104,6 +106,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -681,6 +684,112 @@ fun SettingsCategoryScreen(
 
                             SettingsSubsection(title = stringResource(R.string.settings_lyrics_screen_section)) {
                                 SwitchSettingItem(
+                                    title = stringResource(R.string.settings_exp_animated_lyrics_title),
+                                    subtitle = stringResource(R.string.settings_exp_animated_lyrics_subtitle),
+                                    checked = uiState.useAnimatedLyrics,
+                                    onCheckedChange = settingsViewModel::setUseAnimatedLyrics,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.MusicNote,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                )
+    
+                                AnimatedVisibility(
+                                    visible = uiState.useAnimatedLyrics,
+                                    enter = fadeIn() + expandVertically(),
+                                    exit = fadeOut() + shrinkVertically()
+                                ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        SwitchSettingItem(
+                                            title = stringResource(R.string.settings_exp_lyrics_blur_title),
+                                            subtitle = stringResource(R.string.settings_exp_lyrics_blur_subtitle),
+                                            checked = uiState.animatedLyricsBlurEnabled,
+                                            onCheckedChange = settingsViewModel::setAnimatedLyricsBlurEnabled,
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.BlurOn,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.secondary
+                                                )
+                                            }
+                                        )
+    
+                                        AnimatedVisibility(
+                                            visible = uiState.animatedLyricsBlurEnabled,
+                                            enter = fadeIn() + expandVertically(),
+                                            exit = fadeOut() + shrinkVertically()
+                                        ) {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(10.dp))
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(16.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Outlined.LinearScale,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.secondary
+                                                        )
+    
+                                                        Column(modifier = Modifier.weight(1f)) {
+                                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                Text(
+                                                                    text = stringResource(R.string.settings_exp_lyrics_blur_strength_title),
+                                                                    style = MaterialTheme.typography.titleMedium,
+                                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                                    modifier = Modifier.padding(end = 8.dp)
+                                                                )
+                                                                Surface(
+                                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                                    shape = RoundedCornerShape(16.dp),
+                                                                    modifier = Modifier.height(24.dp)
+                                                                ) {
+                                                                    val strengthText = stringResource(
+                                                                        R.string.settings_exp_lyrics_blur_strength_value,
+                                                                        uiState.animatedLyricsBlurStrength
+                                                                    )
+                                                                    Text(
+                                                                        text = strengthText,
+                                                                        style = MaterialTheme.typography.labelSmall,
+                                                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                                    )
+                                                                }
+                                                            }
+                                                            Text(
+                                                                text = stringResource(R.string.settings_exp_lyrics_blur_strength_subtitle),
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        }
+                                                    }
+    
+                                                    Slider(
+                                                        value = uiState.animatedLyricsBlurStrength,
+                                                        onValueChange = { settingsViewModel.setAnimatedLyricsBlurStrength(it) },
+                                                        valueRange = 0.1f..2.0f,
+                                                        steps = 10
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                SwitchSettingItem(
                                     title = stringResource(R.string.settings_immersive_lyrics_title),
                                     subtitle = stringResource(R.string.settings_immersive_lyrics_subtitle),
                                     checked = uiState.immersiveLyricsEnabled,
@@ -693,10 +802,16 @@ fun SettingsCategoryScreen(
                                         label = stringResource(R.string.settings_auto_hide_delay_title),
                                         description = stringResource(R.string.settings_auto_hide_delay_subtitle),
                                         options = mapOf(
+                                            "1000" to stringResource(R.string.settings_auto_hide_delay_1s),
+                                            "2000" to stringResource(R.string.settings_auto_hide_delay_2s),
                                             "3000" to stringResource(R.string.settings_auto_hide_delay_3s),
                                             "4000" to stringResource(R.string.settings_auto_hide_delay_4s),
                                             "5000" to stringResource(R.string.settings_auto_hide_delay_5s),
-                                            "6000" to stringResource(R.string.settings_auto_hide_delay_6s)
+                                            "6000" to stringResource(R.string.settings_auto_hide_delay_6s),
+                                            "7000" to stringResource(R.string.settings_auto_hide_delay_7s),
+                                            "8000" to stringResource(R.string.settings_auto_hide_delay_8s),
+                                            "9000" to stringResource(R.string.settings_auto_hide_delay_9s),
+                                            "10000" to stringResource(R.string.settings_auto_hide_delay_10s)
                                         ),
                                         selectedKey = uiState.immersiveLyricsTimeout.toString(),
                                         onSelectionChanged = { settingsViewModel.setImmersiveLyricsTimeout(it.toLong()) },

@@ -5,6 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.xelsoq.musicfy.data.preferences.UserPreferencesRepository
 import com.xelsoq.musicfy.data.repository.MusicRepository
 import com.xelsoq.musicfy.data.worker.SyncManager
+import com.xelsoq.musicfy.data.remote.youtube.DatastoreRepository
+import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
+import kotlinx.coroutines.Dispatchers
+import timber.log.Timber
 import com.xelsoq.musicfy.data.worker.SyncProgress
 import com.xelsoq.musicfy.utils.LogUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,9 +22,37 @@ import javax.inject.Inject
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val syncManager: SyncManager,
+    private val youtubeDatastoreRepository: DatastoreRepository,
     musicRepository: MusicRepository,
     userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
+
+    init {
+        // Keep InnerTube auth in sync with stored YouTube cookies / dataSyncId
+        viewModelScope.launch {
+            youtubeDatastoreRepository.cookies.collect { cookies ->
+                val raw = cookies.toRawCookie()
+                YouTube.cookie = raw
+                Timber.tag("MainViewModel").d("Synced YouTube cookies (len=%d)", raw.length)
+            }
+        }
+        viewModelScope.launch {
+            youtubeDatastoreRepository.dataSyncId.collect { id ->
+                YouTube.dataSyncId = id
+                Timber.tag("MainViewModel").d("Synced YouTube dataSyncId")
+            }
+        }
+        // Bootstrap visitorData so anonymous / logged-in requests work
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (YouTube.visitorData.isNullOrBlank()) {
+                    YouTube.visitorData().getOrNull()?.let { YouTube.visitorData = it }
+                }
+            } catch (e: Exception) {
+                Timber.tag("MainViewModel").w(e, "Failed to bootstrap visitorData")
+            }
+        }
+    }
 
     val isSetupComplete: StateFlow<Boolean?> = userPreferencesRepository.initialSetupDoneFlow
         .map { it as Boolean? }
