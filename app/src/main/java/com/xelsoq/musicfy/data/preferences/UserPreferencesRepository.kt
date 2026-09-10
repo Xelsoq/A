@@ -1450,6 +1450,7 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.PURE_YT_MUSIC_ONLY] = enabled
         }
+    }
 
     val searchSourceFlow: Flow<SearchSource> =
         dataStore.data.map { preferences ->
@@ -1465,8 +1466,6 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.SEARCH_SOURCE] = source.name
         }
-    }
-
     }
 
     val contentCountryFlow: Flow<String> =
