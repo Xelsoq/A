@@ -22,57 +22,53 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.carousel.HorizontalCenteredHeroCarousel
-import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import com.xelsoq.musicfy.data.model.Song
 import com.xelsoq.musicfy.data.preferences.QuickPicksDisplayMode
+import kotlin.math.absoluteValue
 
 /** Matches ArchiveTune `ListItemHeight`. */
 private val ListItemHeight = 64.dp
 private const val QuickPicksLimit = 48
 
-/**
- * Fixed corner radius for hero cards. Do not use [MaterialTheme.shapes.extraLarge]
- * alone — some themes make it too small and side masks look square.
- */
+/** Material3 extraLarge-equivalent — used for every hero card including side peeks. */
 private val HeroCorner = RoundedCornerShape(28.dp)
 
 /**
- * Quick Picks — ArchiveTune parity.
- *
- * CARD uses [HorizontalCenteredHeroCarousel] + [maskClip]/[maskBorder] from the
- * CarouselItemScope receiver. Those APIs morph the item silhouette so side peeks
- * stay rounded (a plain HorizontalPager only shows a vertical slice → square edges).
+ * Quick Picks:
+ * - CARD: HorizontalPager with centered page + scale parallax. Every page is
+ *   [clip]ped to [HeroCorner] so side peeks stay rounded (Material3 carousel
+ *   maskClip is unavailable / rectangular in this project).
+ * - LIST: 4-row LazyHorizontalGrid
  */
-@OptIn(
-    ExperimentalFoundationApi::class,
-    ExperimentalMaterial3Api::class,
-    ExperimentalMaterial3ExpressiveApi::class
-)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun QuickPicksSection(
     songs: List<Song>,
@@ -123,7 +119,7 @@ fun QuickPicksSection(
         Spacer(Modifier.height(10.dp))
 
         when (displayMode) {
-            QuickPicksDisplayMode.CARD -> QuickPicksHeroCarousel(
+            QuickPicksDisplayMode.CARD -> QuickPicksHeroPager(
                 songs = distinctSongs,
                 currentSongId = currentSongId,
                 isPlaying = isPlaying,
@@ -141,13 +137,9 @@ fun QuickPicksSection(
     }
 }
 
-@OptIn(
-    ExperimentalFoundationApi::class,
-    ExperimentalMaterial3Api::class,
-    ExperimentalMaterial3ExpressiveApi::class
-)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun QuickPicksHeroCarousel(
+private fun QuickPicksHeroPager(
     songs: List<Song>,
     currentSongId: String?,
     isPlaying: Boolean,
@@ -164,37 +156,50 @@ private fun QuickPicksHeroCarousel(
             .coerceAtLeast(232.dp)
             .coerceAtMost(440.dp)
 
+        // Center the focused page; side pages peek with the same rounded mask
+        val sidePadding = ((maxWidth - heroMaxWidth) / 2).coerceAtLeast(16.dp)
+        val pagerState = rememberPagerState(pageCount = { songs.size })
         val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
 
-        // padding on the container (official Material sample pattern) so side
-        // masks are not flush against the screen edge and look cut off.
-        HorizontalCenteredHeroCarousel(
-            state = rememberCarouselState { songs.size },
-            maxItemWidth = heroMaxWidth,
-            itemSpacing = 10.dp,
-            contentPadding = PaddingValues(horizontal = 16.dp),
+        HorizontalPager(
+            state = pagerState,
+            contentPadding = PaddingValues(horizontal = sidePadding),
+            pageSpacing = 10.dp,
+            pageSize = PageSize.Fixed(heroMaxWidth),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(heroHeight)
-                .padding(horizontal = 8.dp)
         ) { index ->
             val song = songs[index]
             val isActive = song.id == currentSongId
 
-            // maskClip / maskBorder are members of CarouselItemScope (this receiver).
-            // They bind content to the animated carousel mask so side items keep
-            // rounded silhouettes instead of a hard vertical crop.
-            Box(
+            // Parallax-ish scale: focused page = 1f, neighbours slightly smaller
+            val pageOffset = (
+                (pagerState.currentPage - index) + pagerState.currentPageOffsetFraction
+            ).absoluteValue
+            val scale = lerp(1f, 0.92f, pageOffset.coerceIn(0f, 1f))
+
+            Surface(
+                shape = HeroCorner,
+                border = BorderStroke(1.dp, borderColor),
+                color = Color.Transparent,
+                shadowElevation = 0.dp,
                 modifier = Modifier
                     .fillMaxSize()
-                    .maskClip(HeroCorner)
-                    .maskBorder(BorderStroke(1.dp, borderColor), HeroCorner)
+                    .graphicsLayer {
+                        // Side cards shrink slightly — parallax feel like Material carousel
+                        scaleX = scale
+                        scaleY = scale
+                        // Soften side peeks
+                        alpha = lerp(1f, 0.72f, pageOffset.coerceIn(0f, 1f))
+                    }
                     .focusable()
                     .combinedClickable(
                         onClick = { onSongClick(song) },
                         onLongClick = { onSongLongClick?.invoke(song) }
                     )
             ) {
+                Box(modifier = Modifier.fillMaxSize().clip(HeroCorner)) {
                 SmartImage(
                     model = song.albumArtUriString,
                     contentDescription = null,
@@ -258,7 +263,8 @@ private fun QuickPicksHeroCarousel(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
+                } // inner Box
+            } // Surface
         }
     }
 }
