@@ -42,7 +42,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,16 +57,18 @@ import com.xelsoq.musicfy.presentation.components.snapping.LazyGridSnapLayoutInf
 private val ListItemHeight = 64.dp
 private const val QuickPicksLimit = 48
 
-/** Material3 extraLarge-equivalent — used for every hero card including side peeks. */
+/** Material3 extraLarge-equivalent — used for every hero card, matching ArchiveTune's QuickPicksSection. */
 private val HeroCorner = RoundedCornerShape(28.dp)
 
 /**
- * Quick Picks:
- * - CARD: [RoundedHorizontalMultiBrowseCarousel] (the same masked, real-parallax
- *   carousel engine used for the now-playing album carousel) in [CarouselStyle.TWO_PEEK] —
- *   a centered focal item with equal small peeks on both sides, masked/clipped per-frame
- *   to [HeroCorner], matching ArchiveTune's Quick Picks hero carousel.
- * - LIST: 4-row LazyHorizontalGrid
+ * Quick Picks, styled after ArchiveTune's `QuickPicksSection`:
+ * - CARD: a real parallax hero carousel — [RoundedHorizontalMultiBrowseCarousel] (this app's
+ *   own faithful reimplementation of Material3's experimental Carousel, already used by the
+ *   player's album art carousel) in its centered "two peek" style: one large focused card with
+ *   a small peek of the previous/next card on either side, true continuous mask-clip + resize
+ *   as you drag — the same engine ArchiveTune's `HorizontalCenteredHeroCarousel` uses, not a
+ *   fake scale/alpha approximation.
+ * - LIST: 4-row LazyHorizontalGrid, unchanged.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -117,7 +121,7 @@ fun QuickPicksSection(
         Spacer(Modifier.height(10.dp))
 
         when (displayMode) {
-            QuickPicksDisplayMode.CARD -> QuickPicksHeroPager(
+            QuickPicksDisplayMode.CARD -> QuickPicksHeroCarousel(
                 songs = distinctSongs,
                 currentSongId = currentSongId,
                 isPlaying = isPlaying,
@@ -137,7 +141,7 @@ fun QuickPicksSection(
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun QuickPicksHeroPager(
+private fun QuickPicksHeroCarousel(
     songs: List<Song>,
     currentSongId: String?,
     isPlaying: Boolean,
@@ -150,24 +154,22 @@ private fun QuickPicksHeroPager(
             maxWidth >= 600.dp -> 356.dp
             else -> 332.dp
         }
+        val carouselState = rememberCarouselState(itemCount = { songs.size })
         val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
-        val carouselState = rememberCarouselState { songs.size }
+        val haptic = LocalHapticFeedback.current
 
-        // TWO_PEEK = large focal item centered, small peeks either side — this is the
-        // exact keyline shape ArchiveTune's HorizontalCenteredHeroCarousel uses, driven
-        // here by our standalone RoundedHorizontalMultiBrowseCarousel (same maskClip /
-        // maskBorder per-frame masking, since this project can't depend on M3's
-        // experimental carousel package directly).
         RoundedHorizontalMultiBrowseCarousel(
             state = carouselState,
-            itemSpacing = 10.dp,
-            itemCornerRadius = 28.dp,
-            carouselStyle = if (songs.size <= 1) CarouselStyle.NO_PEEK else CarouselStyle.TWO_PEEK,
-            carouselWidth = maxWidth,
-            itemKey = { index -> songs.getOrNull(index)?.id ?: index },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(heroHeight)
+                .height(heroHeight),
+            itemSpacing = 10.dp,
+            itemCornerRadius = 28.dp,
+            // Large focused card centered, small peek of the previous/next card on either
+            // side — this is ArchiveTune's "centered hero" look.
+            carouselStyle = CarouselStyle.TWO_PEEK,
+            carouselWidth = maxWidth,
+            itemKey = { index -> songs[index].id }
         ) { index ->
             val song = songs[index]
             val isActive = song.id == currentSongId
@@ -180,7 +182,10 @@ private fun QuickPicksHeroPager(
                     .focusable()
                     .combinedClickable(
                         onClick = { onSongClick(song) },
-                        onLongClick = { onSongLongClick?.invoke(song) }
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSongLongClick?.invoke(song)
+                        }
                     )
             ) {
                 SmartImage(
