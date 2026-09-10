@@ -885,6 +885,15 @@ class PlaybackDispatchStateHolder @Inject constructor(
             }
         } else {
             beginPreparingSong(effectiveStartSong)
+            // Stop previous audio immediately so the old track does not keep playing
+            // while we resolve youtube:// stream URLs for the new selection.
+            runCatching {
+                dualPlayerEngine.cancelNext()
+                val player = dualPlayerEngine.masterPlayer
+                if (player.isPlaying || player.playWhenReady) {
+                    player.pause()
+                }
+            }
             cb.updateUiState {
                 it.copy(
                     currentPlaybackQueue = songsToPlay.toPlaybackQueue(),
