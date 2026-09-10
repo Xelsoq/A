@@ -103,6 +103,7 @@ import com.xelsoq.musicfy.presentation.components.SmartImage
 import com.xelsoq.musicfy.presentation.components.SmartImageListTargetSize
 import com.xelsoq.musicfy.presentation.components.SongInfoBottomSheet
 import com.xelsoq.musicfy.presentation.viewmodel.PlayerViewModel
+import com.xelsoq.musicfy.presentation.viewmodel.SearchStateHolder
 import com.xelsoq.musicfy.data.remote.youtube.toNativeSong
 import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
