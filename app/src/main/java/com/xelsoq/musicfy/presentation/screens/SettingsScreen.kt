@@ -76,6 +76,8 @@ import com.xelsoq.musicfy.R
 import com.xelsoq.musicfy.presentation.components.CollapsibleCommonTopBar
 import com.xelsoq.musicfy.presentation.components.ExpressiveTopBarContent
 import com.xelsoq.musicfy.presentation.components.MiniPlayerHeight
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import com.xelsoq.musicfy.presentation.model.SettingsCategory
 import com.xelsoq.musicfy.presentation.navigation.Screen
 import com.xelsoq.musicfy.presentation.viewmodel.PlayerViewModel
@@ -136,6 +138,7 @@ fun SettingsScreen(
 
     val topBarHeight = remember { Animatable(maxTopBarHeightPx) }
     var collapseFraction by remember { mutableStateOf(0f) }
+    val hazeState = rememberHazeState()
 
     LaunchedEffect(topBarHeight.value) {
         collapseFraction =
@@ -208,7 +211,9 @@ fun SettingsScreen(
                     bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState)
         ) {
             item {
                 val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -290,7 +295,8 @@ fun SettingsScreen(
                 title = stringResource(R.string.common_settings),
                 collapseFraction = collapseFraction,
                 headerHeight = currentTopBarHeightDp,
-                onBackClick = onNavigationIconClick
+                onBackClick = onNavigationIconClick,
+                hazeState = hazeState
         )
 
         // Block interaction during transition

@@ -104,6 +104,8 @@ import coil.size.Size
 import com.xelsoq.musicfy.R
 import com.xelsoq.musicfy.data.github.GitHubContributorService
 import com.xelsoq.musicfy.presentation.components.CollapsibleCommonTopBar
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import com.xelsoq.musicfy.presentation.components.MiniPlayerHeight
 import com.xelsoq.musicfy.presentation.components.SmartImage
 import com.xelsoq.musicfy.presentation.navigation.Screen
@@ -292,6 +294,7 @@ fun AboutScreen(
 
     val topBarHeight = remember { Animatable(maxTopBarHeightPx) }
     var collapseFraction by remember { mutableStateOf(0f) }
+    val hazeState = rememberHazeState()
 
     LaunchedEffect(topBarHeight.value) {
         collapseFraction = 1f - (
@@ -362,7 +365,9 @@ fun AboutScreen(
                         .asPaddingValues()
                         .calculateBottomPadding() + 12.dp,
             ),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .hazeSource(state = hazeState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item(key = "hero_card") {
@@ -507,7 +512,8 @@ fun AboutScreen(
             headerHeight = currentTopBarHeightDp,
             onBackClick = onNavigationIconClick,
             expandedTitleStartPadding = 20.dp,
-            collapsedTitleStartPadding = 68.dp
+            collapsedTitleStartPadding = 68.dp,
+            hazeState = hazeState
         )
     }
 }

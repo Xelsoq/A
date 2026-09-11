@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.FilledIconButton
@@ -20,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -27,6 +31,11 @@ import androidx.compose.ui.zIndex
 import com.xelsoq.musicfy.ui.theme.MusicfyStatusBarStyle
 import androidx.compose.ui.res.stringResource
 import com.xelsoq.musicfy.R
+import dev.chrisbanes.haze.HazeProgressive
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
 
 @Composable
 fun CollapsibleCommonTopBar(
@@ -56,24 +65,42 @@ fun CollapsibleCommonTopBar(
     titleWidthCompressionThreshold: Dp? = null,
     titleMinWidthAxis: Float = 78f,
     syncStatusBarWithContainer: Boolean = true,
+    /**
+     * When provided, uses the Home-style transparent top bar with progressive blur fade
+     * + dark tint. Caller must place [hazeSource] on the scrolling content with the same state.
+     * When null, falls back to the previous solid alpha background based on collapseFraction.
+     */
+    hazeState: HazeState? = null,
     supportingContent: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    // Logic from GenreDetailScreen:
-    // solidAlpha goes from 0 to 1 as collapseFraction goes from 0 to 0.5 (approx).
-    // Actually GenreDetailScreen uses: (collapseFraction * 2f).coerceIn(0f, 1f)
+    val useBlurFade = hazeState != null
+
+    // solidAlpha only used when not in blur mode (legacy solid fill on collapse).
     val solidAlpha = (collapseFraction * 2f).coerceIn(0f, 1f)
-    
-    val backgroundColor = containerColor ?: MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = solidAlpha)
-    val statusBarFallbackColor = backgroundColor.compositeOver(MaterialTheme.colorScheme.surface)
+
+    val backgroundColor = when {
+        useBlurFade -> Color.Transparent
+        containerColor != null -> containerColor
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = solidAlpha)
+    }
+    val statusBarFallbackColor = if (useBlurFade) {
+        Color.Black.copy(alpha = 0.45f).compositeOver(MaterialTheme.colorScheme.surface)
+    } else {
+        backgroundColor.compositeOver(MaterialTheme.colorScheme.surface)
+    }
 
     if (syncStatusBarWithContainer) {
-        MusicfyStatusBarStyle(color = statusBarFallbackColor)
+        MusicfyStatusBarStyle(
+            color = statusBarFallbackColor,
+            useDarkIcons = !useBlurFade && MaterialTheme.colorScheme.surface.luminance() > 0.5f
+        )
     }
-    // We can also fade the content color if we want, but usually onSurface is fine.
-    // GenreDetail interpolates content color, but for standard screens onSurface is usually correct for both states 
-    // (transparent surface vs surfaceContainer).
-    
+
+    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    // Same height as Home: status bar + ~half (or a bit more) of the top bar area.
+    val blurFadeHeight = statusBarHeight + 56.dp
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -81,6 +108,33 @@ fun CollapsibleCommonTopBar(
             .background(backgroundColor)
             .zIndex(5f)
     ) {
+        // Progressive blur + dark tint layer (Home style). Drawn under the top bar content
+        // so icons/title stay sharp. Only active when hazeState is provided by the caller.
+        if (hazeState != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(blurFadeHeight)
+                    .hazeEffect(
+                        state = hazeState,
+                        style = HazeStyle(
+                            backgroundColor = Color.Transparent,
+                            tints = listOf(
+                                HazeTint(Color.Black.copy(alpha = 0.45f))
+                            ),
+                            blurRadius = 28.dp,
+                            noiseFactor = 0f
+                        )
+                    ) {
+                        progressive = HazeProgressive.verticalGradient(
+                            startIntensity = 1f,
+                            endIntensity = 0f,
+                            preferPerformance = false
+                        )
+                    }
+            )
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -120,7 +174,7 @@ fun CollapsibleCommonTopBar(
                 onClick = onBackClick,
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    contentColor = MaterialTheme.colorScheme.onSurface 
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 )
             ) {
                 Icon(
