@@ -225,18 +225,6 @@ fun AppNavigation(
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                     AccountsScreen(
                         onBackClick = { navController.popBackStack() },
-                        onOpenNeteaseDashboard = {
-                            navController.navigateSafely(Screen.NeteaseDashboard.route)
-                        },
-                        onOpenQqMusicDashboard = {
-                            navController.navigateSafely(Screen.QqMusicDashboard.route)
-                        },
-                        onOpenNavidromeDashboard = {
-                            navController.navigateSafely(Screen.NavidromeDashboard.route)
-                        },
-                        onOpenJellyfinDashboard = {
-                            navController.navigateSafely(Screen.JellyfinDashboard.route)
-                        },
                         onOpenYoutubeAuth = {
                             navController.navigateSafely(Screen.YoutubeAuth.route)
                         }

@@ -91,10 +91,6 @@ import com.xelsoq.musicfy.presentation.components.AlbumArtCollage
 import com.xelsoq.musicfy.presentation.components.BetaInfoBottomSheet
 import com.xelsoq.musicfy.presentation.components.Beta05CleanInstallDisclaimerDialog
 import com.xelsoq.musicfy.presentation.components.ChangelogBottomSheet
-import com.xelsoq.musicfy.presentation.netease.dashboard.NeteaseDashboardViewModel
-import com.xelsoq.musicfy.presentation.jellyfin.dashboard.JellyfinDashboardViewModel
-import com.xelsoq.musicfy.presentation.navidrome.dashboard.NavidromeDashboardViewModel
-import com.xelsoq.musicfy.presentation.qqmusic.dashboard.QqMusicDashboardViewModel
 import com.xelsoq.musicfy.presentation.components.DailyMixSection
 import com.xelsoq.musicfy.presentation.components.QuickPicksSection
 import com.xelsoq.musicfy.presentation.components.FavoriteArtistReleasesSection
@@ -146,10 +142,6 @@ fun HomeScreen(
     paddingValuesParent: PaddingValues,
     playerViewModel: PlayerViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
-    neteaseViewModel: NeteaseDashboardViewModel = hiltViewModel(),
-    qqMusicViewModel: QqMusicDashboardViewModel = hiltViewModel(),
-    navidromeViewModel: NavidromeDashboardViewModel = hiltViewModel(),
-    jellyfinViewModel: JellyfinDashboardViewModel = hiltViewModel(),
     quickPicksViewModel: QuickPicksViewModel = hiltViewModel(),
     favoriteArtistReleasesViewModel: FavoriteArtistReleasesViewModel = hiltViewModel(),
     onOpenSidebar: () -> Unit
@@ -666,13 +658,9 @@ fun HomeScreen(
         }
     }
     if (showStreamingProviderSheet) {
-        val isNeteaseLoggedIn by neteaseViewModel.isLoggedIn.collectAsStateWithLifecycle()
-        val isQqMusicLoggedIn by qqMusicViewModel.isLoggedIn.collectAsStateWithLifecycle()
-        val isNavidromeLoggedIn by navidromeViewModel.isLoggedIn.collectAsStateWithLifecycle()
-        val isJellyfinLoggedIn by jellyfinViewModel.isLoggedIn.collectAsStateWithLifecycle()
-        StreamingProviderSheet(
+                        StreamingProviderSheet(
             onDismissRequest = { showStreamingProviderSheet = false },
-            isYoutubeLoggedIn = false,
+            isYoutubeLoggedIn = false, // TODO: wire DatastoreRepository cookies if needed
             onNavigateToYoutubeAuth = {
                 navController.navigateSafely(Screen.YoutubeAuth.route)
             }

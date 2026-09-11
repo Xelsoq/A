@@ -2,14 +2,9 @@ package com.xelsoq.musicfy.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.xelsoq.musicfy.data.gdrive.GDriveRepository
-import com.xelsoq.musicfy.data.jellyfin.JellyfinRepository
-import com.xelsoq.musicfy.data.navidrome.NavidromeRepository
-import com.xelsoq.musicfy.data.netease.NeteaseRepository
-import com.xelsoq.musicfy.data.qqmusic.QqMusicRepository
-import com.xelsoq.musicfy.data.repository.MusicRepository
+import com.xelsoq.musicfy.data.model.youtube.Cookies
 import com.xelsoq.musicfy.data.remote.youtube.DatastoreRepository
-import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
+import com.xelsoq.musicfy.data.repository.MusicRepository
 import com.xelsoq.musicfy.data.telegram.TelegramRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -23,14 +18,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
+import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
 
 enum class ExternalServiceAccount {
     TELEGRAM,
-    GOOGLE_DRIVE,
-    NETEASE,
-    QQ_MUSIC,
-    NAVIDROME,
-    JELLYFIN,
     YOUTUBE
 }
 
@@ -51,11 +42,6 @@ data class AccountsUiState(
 class AccountsViewModel @Inject constructor(
     private val telegramRepository: TelegramRepository,
     private val musicRepository: MusicRepository,
-    private val gDriveRepository: GDriveRepository,
-    private val neteaseRepository: NeteaseRepository,
-    private val qqMusicRepository: QqMusicRepository,
-    private val navidromeRepository: NavidromeRepository,
-    private val jellyfinRepository: JellyfinRepository,
     private val youtubeDatastoreRepository: DatastoreRepository
 ) : ViewModel() {
 
@@ -70,69 +56,20 @@ class AccountsViewModel @Inject constructor(
         connected to channelCount
     }
 
-    private val gDriveStateFlow = combine(
-        gDriveRepository.isLoggedInFlow,
-        gDriveRepository.getFolders().map { it.size }
-    ) { connected, folderCount ->
-        connected to folderCount
-    }
-
-    private val neteaseStateFlow = combine(
-        neteaseRepository.isLoggedInFlow,
-        neteaseRepository.getPlaylists().map { it.size }
-    ) { connected, playlistCount ->
-        connected to playlistCount
-    }
-
-    private val qqMusicStateFlow = combine(
-        qqMusicRepository.isLoggedInFlow,
-        qqMusicRepository.getPlaylists().map { it.size }
-    ) { connected, playlistCount ->
-        connected to playlistCount
-    }
-
-    private val navidromeStateFlow = combine(
-        navidromeRepository.isLoggedInFlow,
-        navidromeRepository.getPlaylists().map { it.size }
-    ) { connected, playlistCount ->
-        connected to playlistCount
-    }
-
-    private val jellyfinStateFlow = combine(
-        jellyfinRepository.isLoggedInFlow,
-        jellyfinRepository.getPlaylists().map { it.size }
-    ) { connected, playlistCount ->
-        connected to playlistCount
-    }
-
-
     private val youtubeStateFlow = youtubeDatastoreRepository.cookies.map { cookies ->
         val raw = cookies.toRawCookie()
-        val connected = raw.isNotBlank() && (raw.contains("SAPISID") || raw.contains("__Secure-3PAPISID"))
+        val connected = raw.isNotBlank() &&
+            (raw.contains("SAPISID") || raw.contains("__Secure-3PAPISID"))
         connected to 0
     }
 
     val uiState: StateFlow<AccountsUiState> = combine(
-        combine(
-            listOf(
-                telegramStateFlow,
-                gDriveStateFlow,
-                neteaseStateFlow,
-                qqMusicStateFlow,
-                navidromeStateFlow,
-                jellyfinStateFlow,
-                youtubeStateFlow
-            )
-        ) { it.toList() },
+        telegramStateFlow,
+        youtubeStateFlow,
         loggingOutServices
-    ) { states, activeLogouts ->
-        val (telegramConnected, telegramChannelCount) = states[0] as Pair<Boolean, Int>
-        val (gDriveConnected, gDriveFolderCount) = states[1] as Pair<Boolean, Int>
-        val (neteaseConnected, neteasePlaylistCount) = states[2] as Pair<Boolean, Int>
-        val (qqConnected, qqPlaylistCount) = states[3] as Pair<Boolean, Int>
-        val (navidromeConnected, navidromePlaylistCount) = states[4] as Pair<Boolean, Int>
-        val (jellyfinConnected, jellyfinPlaylistCount) = states[5] as Pair<Boolean, Int>
-        val (youtubeConnected, _) = states[6] as Pair<Boolean, Int>
+    ) { telegram, youtube, activeLogouts ->
+        val (telegramConnected, telegramChannelCount) = telegram
+        val (youtubeConnected, _) = youtube
 
         val connectedAccounts = buildList {
             if (telegramConnected) {
@@ -150,124 +87,27 @@ class AccountsViewModel @Inject constructor(
                     )
                 )
             }
-            if (gDriveConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.GOOGLE_DRIVE,
-                        title = "Google Drive",
-                        accountLabel = gDriveRepository.userDisplayName
-                            ?.takeIf { it.isNotBlank() }
-                            ?: gDriveRepository.userEmail
-                                ?.takeIf { it.isNotBlank() }
-                            ?: "Google account connected",
-                        syncedContentLabel = formatCount(
-                            count = gDriveFolderCount,
-                            singular = "synced folder",
-                            plural = "synced folders"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.GOOGLE_DRIVE in activeLogouts
-                    )
-                )
-            }
-            if (neteaseConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.NETEASE,
-                        title = "Netease Music",
-                        accountLabel = neteaseRepository.userNickname
-                            ?.takeIf { it.isNotBlank() }
-                            ?: "Netease account connected",
-                        syncedContentLabel = formatCount(
-                            count = neteasePlaylistCount,
-                            singular = "synced playlist",
-                            plural = "synced playlists"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.NETEASE in activeLogouts
-                    )
-                )
-            }
-            if (qqConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.QQ_MUSIC,
-                        title = "QQ Music",
-                        accountLabel = qqMusicRepository.userNickname
-                            ?.takeIf { it.isNotBlank() }
-                            ?: "QQ Music account connected",
-                        syncedContentLabel = formatCount(
-                            count = qqPlaylistCount,
-                            singular = "synced playlist",
-                            plural = "synced playlists"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.QQ_MUSIC in activeLogouts
-                    )
-                )
-            }
-            if (navidromeConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.NAVIDROME,
-                        title = "Subsonic",
-                        accountLabel = navidromeRepository.username
-                            ?.takeIf { it.isNotBlank() }
-                            ?: "Subsonic account connected",
-                        syncedContentLabel = formatCount(
-                            count = navidromePlaylistCount,
-                            singular = "synced playlist",
-                            plural = "synced playlists"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.NAVIDROME in activeLogouts
-                    )
-                )
-            }
-            if (jellyfinConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.JELLYFIN,
-                        title = "Jellyfin",
-                        accountLabel = jellyfinRepository.username
-                            ?.takeIf { it.isNotBlank() }
-                            ?: "Jellyfin account connected",
-                        syncedContentLabel = formatCount(
-                            count = jellyfinPlaylistCount,
-                            singular = "synced playlist",
-                            plural = "synced playlists"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.JELLYFIN in activeLogouts
-                    )
-                )
-            }
-
             if (youtubeConnected) {
                 add(
                     ExternalAccountUiModel(
                         service = ExternalServiceAccount.YOUTUBE,
                         title = "YouTube Music",
-                        accountLabel = "YouTube Music account connected",
-                        syncedContentLabel = "Streaming catalog",
+                        accountLabel = "Signed in to YouTube Music",
+                        syncedContentLabel = "Library & streaming",
                         isLoggingOut = ExternalServiceAccount.YOUTUBE in activeLogouts
                     )
                 )
             }
-
         }
 
         val disconnectedServices = buildList {
             if (!telegramConnected) add(ExternalServiceAccount.TELEGRAM)
-            if (!gDriveConnected) add(ExternalServiceAccount.GOOGLE_DRIVE)
-            if (!neteaseConnected) add(ExternalServiceAccount.NETEASE)
-            if (!qqConnected) add(ExternalServiceAccount.QQ_MUSIC)
-            if (!navidromeConnected) add(ExternalServiceAccount.NAVIDROME)
-            if (!jellyfinConnected) add(ExternalServiceAccount.JELLYFIN)
             if (!youtubeConnected) add(ExternalServiceAccount.YOUTUBE)
         }
 
-        // Only expose Telegram + YouTube Music in the UI.
-        // QQ / Netease / Jellyfin / Navidrome (Subsonic) / Google Drive are removed from connections.
-        val allowed = setOf(ExternalServiceAccount.TELEGRAM, ExternalServiceAccount.YOUTUBE)
         AccountsUiState(
-            connectedAccounts = connectedAccounts.filter { it.service in allowed },
-            disconnectedServices = disconnectedServices.filter { it in allowed }
+            connectedAccounts = connectedAccounts,
+            disconnectedServices = disconnectedServices
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountsUiState())
 
@@ -284,13 +124,8 @@ class AccountsViewModel @Inject constructor(
                             telegramRepository.clearMemoryCache()
                             musicRepository.clearTelegramData()
                         }
-                        ExternalServiceAccount.GOOGLE_DRIVE -> gDriveRepository.logout()
-                        ExternalServiceAccount.NETEASE -> neteaseRepository.logout()
-                        ExternalServiceAccount.QQ_MUSIC -> qqMusicRepository.logout()
-                        ExternalServiceAccount.NAVIDROME -> navidromeRepository.logout()
-                        ExternalServiceAccount.JELLYFIN -> jellyfinRepository.logout()
                         ExternalServiceAccount.YOUTUBE -> {
-                            youtubeDatastoreRepository.saveCookies(com.xelsoq.musicfy.data.model.youtube.Cookies(""))
+                            youtubeDatastoreRepository.saveCookies(Cookies(""))
                             youtubeDatastoreRepository.saveDataSyncId("")
                             YouTube.cookie = null
                             YouTube.dataSyncId = null
