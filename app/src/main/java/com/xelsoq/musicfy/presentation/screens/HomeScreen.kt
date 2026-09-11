@@ -104,6 +104,12 @@ import com.xelsoq.musicfy.data.remote.youtube.toNativeSong
 import com.xelsoq.musicfy.data.preferences.QuickPicksDisplayMode
 import com.xelsoq.musicfy.presentation.components.HomeGradientTopBar
 import com.xelsoq.musicfy.presentation.components.HomeOptionsBottomSheet
+import dev.chrisbanes.haze.HazeProgressive
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import com.xelsoq.musicfy.presentation.components.MiniPlayerHeight
 import com.xelsoq.musicfy.presentation.components.RecentlyPlayedSection
 import com.xelsoq.musicfy.presentation.components.RecentlyPlayedSectionMinSongsToShow
@@ -285,9 +291,11 @@ fun HomeScreen(
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    // Fade preto: da barra de status até a metade da topbar (mesmo estilo do fade
-    // que já existe embaixo, atrás da barra de navegação).
+    // Fade/blur: da barra de status até a metade da topbar (mesmo estilo do fade
+    // que já existe embaixo, atrás da barra de navegação). Blur progressivo
+    // (mais forte no topo, sumindo gradualmente) + tint escuro para contraste.
     val topGradientHeight = statusBarHeight + 32.dp
+    val hazeState = rememberHazeState()
 
     // Persist the scroll position across navigation away/back. The Stats card and other
     // conditional sections can shift indices while data re-emits when returning, which
@@ -336,20 +344,29 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 Box(modifier = Modifier.fillMaxWidth()) {
-                    // Fade preto atrás da topbar: sempre visível, da barra de status
-                    // até a metade da topbar (a topbar em si é sempre transparente).
+                    // Blur progressivo + fade atrás da topbar: sempre visível, da barra de
+                    // status até a metade da topbar (a topbar em si permanece nítida e
+                    // transparente). O blur é mais forte no topo e some gradualmente.
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(topGradientHeight)
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colorStops = arrayOf(
-                                        0.0f to Color.Black.copy(alpha = 0.55f),
-                                        1.0f to Color.Transparent
-                                    )
+                            .hazeEffect(
+                                state = hazeState,
+                                style = HazeStyle(
+                                    backgroundColor = Color.Transparent,
+                                    tints = listOf(
+                                        HazeTint(Color.Black.copy(alpha = 0.45f))
+                                    ),
+                                    blurRadius = 28.dp,
+                                    noiseFactor = 0f
                                 )
-                            )
+                            ) {
+                                progressive = HazeProgressive.verticalGradient(
+                                    startIntensity = 1f,
+                                    endIntensity = 0f
+                                )
+                            }
                     )
                     HomeGradientTopBar(
                         onNavigationIconClick = {
@@ -375,7 +392,8 @@ fun HomeScreen(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
+                    .background(MaterialTheme.colorScheme.background)
+                    .hazeSource(state = hazeState),
                 contentPadding = PaddingValues(
                     top = innerPadding.calculateTopPadding(),
                     bottom = paddingValuesParent.calculateBottomPadding()

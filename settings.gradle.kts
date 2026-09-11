@@ -31,7 +31,6 @@ dependencyResolutionManagement {
                 includeGroup("com.github.racra")
                 includeGroup("com.github.tdlibx")
                 includeGroup("com.github.TeamNewPipe")
-                includeGroup("com.github.Dimezis")
             }
         }
     }
