@@ -291,12 +291,11 @@ fun HomeScreen(
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    // Fade/blur: da barra de status até a metade da topbar (mesmo estilo do fade
-    // que já existe embaixo, atrás da barra de navegação). Blur progressivo
-    // (mais forte no topo, sumindo gradualmente) + tint escuro para contraste.
-    // A altura cobre a status bar + ~metade da TopAppBar para o fade terminar
-    // suavemente antes de sair da área da topbar.
-    val topGradientHeight = statusBarHeight + 36.dp
+    // Fade/blur: da barra de status até cobrir boa parte da topbar.
+    // Blur progressivo (mais forte no topo, sumindo gradualmente) + tint escuro.
+    // Altura maior para o efeito não ficar espremido só no topo e realmente
+    // alcançar ~metade (ou um pouco mais) da área da TopAppBar.
+    val topGradientHeight = statusBarHeight + 56.dp
     val hazeState = rememberHazeState()
 
     // Persist the scroll position across navigation away/back. The Stats card and other
