@@ -1187,9 +1187,9 @@ class PlayerViewModel @Inject constructor(
             val current = searchSource.value
             val next = if (current == SearchSource.ONLINE) SearchSource.LOCAL else SearchSource.ONLINE
             userPreferencesRepository.setSearchSource(next)
-            // Re-run search with the new source
+            // Re-run with explicit source so we don't race DataStore emission
             if (searchQuery.isNotBlank()) {
-                searchStateHolder.performSearch(searchQuery)
+                searchStateHolder.performSearch(searchQuery, sourceOverride = next)
             }
         }
     }

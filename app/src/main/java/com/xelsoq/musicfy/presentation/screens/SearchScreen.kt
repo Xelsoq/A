@@ -144,6 +144,7 @@ import com.xelsoq.musicfy.R
 import com.xelsoq.musicfy.ui.theme.GoogleSansRounded
 import com.xelsoq.musicfy.data.repository.MusicRepository
 import com.xelsoq.musicfy.presentation.components.MiniPlayerHeight
+import com.xelsoq.musicfy.presentation.components.MiniPlayerBottomSpacer
 import com.xelsoq.musicfy.presentation.components.PlaylistBottomSheet
 import com.xelsoq.musicfy.presentation.components.PlaylistCover
 import com.xelsoq.musicfy.presentation.components.resolveMainScreenBottomGradientHeight
@@ -623,9 +624,9 @@ fun SearchScreen(
             Spacer(
                 modifier = Modifier.height(
                     if (stablePlayerState.currentSong != null) {
-                        MiniPlayerHeight + 72.dp
+                        bottomBarHeightDp + MiniPlayerHeight + MiniPlayerBottomSpacer + 88.dp
                     } else {
-                        bottomBarHeightDp + 72.dp
+                        bottomBarHeightDp + 88.dp
                     }
                 )
             )
@@ -640,15 +641,20 @@ fun SearchScreen(
                 .background(brush = bottomGradientBrush)
         )
 
-        // Bottom search bar — slides up above nav / mini-player when Search opens;
-        // rides the IME when the keyboard is visible.
+        // Bottom search bar — above nav, and above mini-player when one is visible;
+        // rides the IME when the keyboard is open.
         val hasVisibleMiniPlayer = stablePlayerState.currentSong != null
         val density = LocalDensity.current
         val imeBottom = with(density) {
             WindowInsets.ime.getBottom(this).toDp()
         }
+        // Stack: system/nav occupied height + mini-player card + spacer under the sheet.
         val restingSearchBarBottom =
-            if (hasVisibleMiniPlayer) MiniPlayerHeight + 10.dp else bottomBarHeightDp + 10.dp
+            if (hasVisibleMiniPlayer) {
+                bottomBarHeightDp + MiniPlayerHeight + MiniPlayerBottomSpacer + 16.dp
+            } else {
+                bottomBarHeightDp + 12.dp
+            }
         val targetSearchBarBottom =
             if (imeBottom > 8.dp) imeBottom + 8.dp else restingSearchBarBottom
         val searchBarBottomPadding by animateDpAsState(

@@ -63,6 +63,7 @@ class SearchStateHolder @Inject constructor(
     private data class SearchRequest(
         val query: String,
         val requestId: Long,
+        val sourceOverride: SearchSource? = null,
     )
 
     private val _searchResults = MutableStateFlow<ImmutableList<SearchResultItem>>(persistentListOf())
@@ -110,7 +111,8 @@ class SearchStateHolder @Inject constructor(
 
                     try {
                         _isSearching.value = true
-                        val source = userPreferencesRepository.searchSourceFlow.first()
+                        val source = request.sourceOverride
+                            ?: userPreferencesRepository.searchSourceFlow.first()
                         if (source == SearchSource.LOCAL) {
                             performLocalSearch(normalizedQuery, request.requestId)
                         } else {
@@ -134,22 +136,22 @@ class SearchStateHolder @Inject constructor(
 
     private suspend fun performLocalSearch(normalizedQuery: String, requestId: Long) {
         val currentFilter = _selectedSearchFilter.value
-        musicRepository.searchAll(normalizedQuery, currentFilter).collect { resultsList ->
-            val sortedResults = resultsList.sortedWith(
-                compareBy { result ->
-                    when (result) {
-                        is SearchResultItem.SongItem -> 0
-                        is SearchResultItem.AlbumItem -> 1
-                        is SearchResultItem.ArtistItem -> 2
-                        is SearchResultItem.PlaylistItem -> 3
-                    }
+        // Use first() — Room search Flows never complete; collecting forever left isSearching stuck true.
+        val resultsList = musicRepository.searchAll(normalizedQuery, currentFilter).first()
+        if (requestId != latestSearchRequestId.get()) return
+        val sortedResults = resultsList.sortedWith(
+            compareBy { result ->
+                when (result) {
+                    is SearchResultItem.SongItem -> 0
+                    is SearchResultItem.AlbumItem -> 1
+                    is SearchResultItem.ArtistItem -> 2
+                    is SearchResultItem.PlaylistItem -> 3
                 }
-            )
-            if (requestId != latestSearchRequestId.get()) return@collect
-            val immutableResults = sortedResults.toImmutableList()
-            if (_searchResults.value != immutableResults) {
-                _searchResults.value = immutableResults
             }
+        )
+        val immutableResults = sortedResults.toImmutableList()
+        if (_searchResults.value != immutableResults) {
+            _searchResults.value = immutableResults
         }
     }
 
@@ -349,15 +351,17 @@ class SearchStateHolder @Inject constructor(
         _selectedSearchFilter.value = filterType
     }
 
-    fun performSearch(query: String) {
+    fun performSearch(query: String, sourceOverride: SearchSource? = null) {
         val normalizedQuery = query.trim()
         val requestId = latestSearchRequestId.incrementAndGet()
         if (normalizedQuery.isBlank()) {
             if (_searchResults.value.isNotEmpty()) {
                 _searchResults.value = persistentListOf()
             }
+            _isSearching.value = false
+            return
         }
-        searchRequests.tryEmit(SearchRequest(normalizedQuery, requestId))
+        searchRequests.tryEmit(SearchRequest(normalizedQuery, requestId, sourceOverride))
     }
 
     fun loadSearchHistory(limit: Int = 15) {
