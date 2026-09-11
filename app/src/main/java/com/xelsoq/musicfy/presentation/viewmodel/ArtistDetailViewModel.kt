@@ -10,44 +10,67 @@ import androidx.lifecycle.viewModelScope
 import com.xelsoq.musicfy.R
 import com.xelsoq.musicfy.data.model.Artist
 import com.xelsoq.musicfy.data.model.Song
-import com.xelsoq.musicfy.data.remote.youtube.toNativeSong
 import com.xelsoq.musicfy.data.repository.ArtistImageRepository
 import com.xelsoq.musicfy.data.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
+import com.xelsoq.musicfy.data.preferences.UserPreferencesRepository
+import com.xelsoq.musicfy.data.remote.youtube.toNativeSong
+import unshoo.ianshulyadav.pixelmusic.innertube.YouTube as InnerTubeYouTube
+import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
 import unshoo.ianshulyadav.pixelmusic.innertube.models.AlbumItem
 import unshoo.ianshulyadav.pixelmusic.innertube.models.ArtistItem
-import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
+import unshoo.ianshulyadav.pixelmusic.innertube.models.BrowseEndpoint
+import unshoo.ianshulyadav.pixelmusic.innertube.pages.ArtistPage
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 
+/**
+ * Holds the full UI state for ArtistDetailScreen.
+ *
+ * [effectiveImageUrl] is the resolved image to display (custom takes priority over Deezer).
+ * It is updated after artist data loads and again whenever the user changes the custom image.
+ */
 data class ArtistDetailUiState(
     val artist: Artist? = null,
     val songs: List<Song> = emptyList(),
+    val popularSongs: List<Song> = emptyList(),
     val albumSections: List<ArtistAlbumSection> = emptyList(),
+    val singlesAndEPs: List<ArtistAlbumSection> = emptyList(),
     val effectiveImageUrl: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val isOnlineArtist: Boolean = false,
     val artistDescription: String? = null,
+    val subscriberCount: String? = null,
     val browseId: String? = null,
+    val albumsMoreEndpoint: BrowseEndpoint? = null,
+    val singlesMoreEndpoint: BrowseEndpoint? = null,
+    val songsMoreEndpoint: BrowseEndpoint? = null,
+    val allItems: List<ArtistAlbumSection> = emptyList(),
+    val isAllItemsLoading: Boolean = false,
+    val allItemsContinuation: String? = null,
+    val allItemsError: String? = null,
+    val popularSongsAll: List<Song> = emptyList(),
+    val isPopularSongsAllLoading: Boolean = false,
+    val popularSongsAllContinuation: String? = null,
+    val popularSongsAllError: String? = null
 )
+
+enum class ArtistSectionType { ALBUM, SINGLE_EP, SONGS }
 
 @Immutable
 data class ArtistAlbumSection(
@@ -57,6 +80,7 @@ data class ArtistAlbumSection(
     val albumArtUriString: String?,
     val songs: List<Song>,
     val browseId: String? = null,
+    val sectionType: ArtistSectionType = ArtistSectionType.ALBUM
 )
 
 @HiltViewModel
@@ -65,7 +89,8 @@ class ArtistDetailViewModel @Inject constructor(
     private val musicRepository: MusicRepository,
     private val artistImageRepository: ArtistImageRepository,
     val themeStateHolder: ThemeStateHolder,
-    savedStateHandle: SavedStateHandle
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ArtistDetailUiState())
@@ -74,18 +99,46 @@ class ArtistDetailViewModel @Inject constructor(
     private val _artistColorScheme = MutableStateFlow<ColorSchemePair?>(null)
     val artistColorScheme: StateFlow<ColorSchemePair?> = _artistColorScheme.asStateFlow()
 
+    val isSubscribed: Flow<Boolean> = combine(
+        savedStateHandle.getStateFlow<String?>("artistId", null),
+        userPreferencesRepository.subscribedArtistIdsFlow
+    ) { artistIdStr, subscribedIds ->
+        artistIdStr != null && subscribedIds.contains(artistIdStr)
+    }
+
+    fun toggleSubscription() {
+        val artistIdStr = savedStateHandle.get<String?>("artistId") ?: return
+        viewModelScope.launch {
+            val browseId = uiState.value.browseId ?: if (artistIdStr.toLongOrNull() == null) artistIdStr else null
+            val currentSubscribed = userPreferencesRepository.subscribedArtistIdsFlow.first()
+            val isCurrentlySubscribed = currentSubscribed.contains(artistIdStr)
+            val subscribe = !isCurrentlySubscribed
+
+            if (browseId != null) {
+                try {
+                    withContext(Dispatchers.IO) {
+                        InnerTubeYouTube.subscribeChannel(browseId, subscribe)
+                    }
+                } catch (e: Exception) {
+                    Log.e("ArtistDetailViewModel", "Failed to toggle remote subscription", e)
+                }
+            }
+
+            userPreferencesRepository.subscribeArtist(artistIdStr, subscribe)
+            if (browseId != null && browseId != artistIdStr) {
+                userPreferencesRepository.subscribeArtist(browseId, subscribe)
+            }
+
+        }
+    }
+
     init {
         savedStateHandle.getStateFlow<String?>("artistId", null)
             .onEach { idString ->
                 if (idString != null) {
                     loadArtistData(idString)
                 } else {
-                    _uiState.update {
-                        it.copy(
-                            error = context.getString(R.string.artist_detail_id_not_found),
-                            isLoading = false
-                        )
-                    }
+                    _uiState.update { it.copy(error = context.getString(R.string.artist_id_not_found), isLoading = false) }
                 }
             }
             .launchIn(viewModelScope)
@@ -101,183 +154,208 @@ class ArtistDetailViewModel @Inject constructor(
             try {
                 val numericId = artistIdStr.toLongOrNull()
                 var browseId: String? = null
-
-                if (artistIdStr.startsWith("UC") || artistIdStr.startsWith("LA") ||
-                    artistIdStr.startsWith("MP") || (numericId == null && artistIdStr.isNotBlank())
-                ) {
+                if (numericId == null || artistIdStr.startsWith("UC") || artistIdStr.startsWith("LA")) {
                     browseId = artistIdStr
-                } else if (numericId != null) {
-                    SearchStateHolder.artistIdMap[numericId]?.let { browseId = it }
-                    if (browseId == null) {
-                        val localArtist = musicRepository.getArtistById(numericId).first()
-                        if (localArtist != null) {
-                            // Still try to enrich with YouTube when possible, but local
-                            // library remains the source of truth for tracks.
-                            val primaryArtistName = localArtist.name.split(
-                                ", ", " & ", " feat.", " feat ", " Feat.", " Feat ",
-                                " FT.", " FT ", " ft.", " ft "
-                            ).firstOrNull()?.trim() ?: localArtist.name
-                            // Prefer local path for local artists
-                            loadLocalArtist(numericId)
-                            return@launch
+                } else {
+                    val localArtist = musicRepository.getArtistById(numericId).first()
+                    if (localArtist != null) {
+                        val primaryArtistName = localArtist.name.split(
+                            ", ", " & ", " feat.", " feat ", " Feat.", " Feat ", " FT.", " FT ", " ft.", " ft "
+                        ).firstOrNull()?.trim() ?: localArtist.name
+
+                        val searchResult = withContext(Dispatchers.IO) {
+                            InnerTubeYouTube.search(primaryArtistName, InnerTubeYouTube.SearchFilter.FILTER_ARTIST).getOrNull()
                         }
+                        val artistItem = searchResult?.items?.find { it is ArtistItem } as? ArtistItem
+                        browseId = artistItem?.id
                     }
                 }
 
-                if (browseId != null && (
-                        browseId.startsWith("UC") || browseId.startsWith("LA") ||
-                            browseId.startsWith("MP") || numericId == null
-                        )
-                ) {
+                if (browseId != null && (browseId.startsWith("UC") || browseId.startsWith("LA") || numericId == null)) {
                     val artistPageResult = withContext(Dispatchers.IO) {
-                        YouTube.artist(browseId!!)
+                        InnerTubeYouTube.artist(browseId)
                     }
+
                     artistPageResult.onSuccess { artistPage ->
                         val artistItem = artistPage.artist
-                        val channelId = browseId!!
 
-                        // Map channel id for later navigation / playArtist
-                        val artistLongId = -(17_000_000_000_000L +
-                            kotlin.math.abs(channelId.hashCode().toLong()))
-                        SearchStateHolder.artistIdMap[artistLongId] = channelId
-
-                        // Popular / Songs shelf
+                        // ── Popular Songs: extract from the "Songs" section ──
                         val ytSongsSection = artistPage.sections.find {
                             it.title.contains("Songs", ignoreCase = true) ||
-                                it.title.contains("Popular", ignoreCase = true) ||
-                                it.title.contains("Top", ignoreCase = true)
+                            it.title.contains("Popular", ignoreCase = true)
                         }
-                        val popularSongs = ytSongsSection?.items
-                            ?.mapNotNull { (it as? SongItem)?.toNativeSong() }
-                            ?.take(25)
-                            .orEmpty()
-
-                        // Collect album-like items from Albums / Releases / Singles / EPs
-                        fun sectionAlbumItems(predicate: (String) -> Boolean): List<AlbumItem> =
-                            artistPage.sections
-                                .filter { predicate(it.title) }
-                                .flatMap { section -> section.items.filterIsInstance<AlbumItem>() }
-
-                        val albumItems = (
-                            sectionAlbumItems {
-                                it.contains("Album", ignoreCase = true) ||
-                                    it.contains("Release", ignoreCase = true)
-                            } + sectionAlbumItems {
-                                it.contains("Single", ignoreCase = true) ||
-                                    it.contains("EP", ignoreCase = true)
-                            }
-                            )
-                            .distinctBy { it.browseId }
-                            .take(10)
-
-                        // Register browseIds and hydrate a few albums with tracks (parallel)
-                        val hydratedAlbumSections = coroutineScope {
-                            albumItems.map { album ->
-                                async(Dispatchers.IO) {
-                                    val longId = ytAlbumLongId(album.browseId, album.title)
-                                    SearchStateHolder.albumIdMap[longId] = album.browseId
-                                    val tracks = YouTube.album(album.browseId)
-                                        .getOrNull()
-                                        ?.songs
-                                        ?.map { it.toNativeSong() }
-                                        .orEmpty()
-                                    ArtistAlbumSection(
-                                        albumId = longId,
-                                        title = album.title,
-                                        year = album.year,
-                                        albumArtUriString = album.thumbnail,
-                                        songs = tracks,
-                                        browseId = album.browseId,
-                                    )
-                                }
-                            }.awaitAll()
-                        }
-
-                        val albumSections = buildList {
-                            if (popularSongs.isNotEmpty()) {
-                                add(
-                                    ArtistAlbumSection(
-                                        albumId = -(18_000_000_000_000L +
-                                            kotlin.math.abs(channelId.hashCode().toLong())),
-                                        title = "Popular",
-                                        year = null,
-                                        albumArtUriString = artistItem.thumbnail,
-                                        songs = popularSongs,
-                                        browseId = null,
-                                    )
-                                )
-                            }
-                            addAll(hydratedAlbumSections)
-                        }
-
-                        val allSongs = buildList {
-                            addAll(popularSongs)
-                            hydratedAlbumSections.forEach { addAll(it.songs) }
-                        }.distinctBy { it.id }
+                        val popularSongs = ytSongsSection?.items?.mapNotNull { item ->
+                            (item as? SongItem)?.toNativeSong()
+                        }?.take(10) ?: emptyList()
 
                         val artistModel = Artist(
-                            id = artistLongId,
+                            id = -(17_000_000_000_000L + kotlin.math.abs(browseId.hashCode().toLong())),
                             name = artistItem.title,
-                            songCount = allSongs.size.coerceAtLeast(popularSongs.size),
+                            songCount = popularSongs.size,
                             imageUrl = artistItem.thumbnail
                         )
 
-                        val effectiveUrl = artistItem.thumbnail
-                        val newScheme = if (!effectiveUrl.isNullOrBlank()) {
+                        // ── Albums: sections titled "Albums" or "Releases" ──
+                        fun AlbumItem.toAlbumSection(artistTitle: String, artistIdHash: Long): ArtistAlbumSection {
+                            val longId = -(16_000_000_000_000L + kotlin.math.abs(this.browseId.hashCode().toLong()))
+                            return ArtistAlbumSection(
+                                albumId = longId,
+                                title = this.title,
+                                year = this.year,
+                                albumArtUriString = this.thumbnail,
+                                browseId = this.browseId,
+                                songs = emptyList(), // Albums shown as cards; songs loaded on album detail
+                                sectionType = ArtistSectionType.ALBUM
+                            )
+                        }
+
+                        val albumsSection = artistPage.sections.firstOrNull { section ->
+                            section.title.contains("Albums", ignoreCase = true) ||
+                            section.title.contains("Releases", ignoreCase = true)
+                        }
+                        val albumSections = albumsSection?.items?.mapNotNull { item ->
+                            when (item) {
+                                is AlbumItem -> item.toAlbumSection(artistItem.title, browseId.hashCode().toLong())
+                                else -> null
+                            }
+                        }.orEmpty()
+
+                        // ── Singles & EPs: sections titled "Singles", "EP", or "EPs" ──
+                        val singlesSection = artistPage.sections.firstOrNull { section ->
+                            section.title.contains("Single", ignoreCase = true) ||
+                            section.title.contains("EP", ignoreCase = true)
+                        }
+                        val singlesAndEPs = singlesSection?.items?.mapNotNull { item ->
+                            when (item) {
+                                is AlbumItem -> {
+                                    val longId = -(16_000_000_000_000L + kotlin.math.abs(item.browseId.hashCode().toLong()))
+                                    ArtistAlbumSection(
+                                        albumId = longId,
+                                        title = item.title,
+                                        year = item.year,
+                                        albumArtUriString = item.thumbnail,
+                                        browseId = item.browseId,
+                                        songs = emptyList(),
+                                        sectionType = ArtistSectionType.SINGLE_EP
+                                    )
+                                }
+                                else -> null
+                            }
+                        }.orEmpty()
+
+                        val effectiveImageUrl = artistItem.thumbnail
+                        val newScheme = if (!effectiveImageUrl.isNullOrBlank()) {
                             try {
-                                themeStateHolder.getOrGenerateColorScheme(effectiveUrl)
+                                themeStateHolder.getOrGenerateColorScheme(effectiveImageUrl)
                             } catch (e: Exception) {
-                                Log.w("ArtistDebug", "Failed to warm color scheme: ${e.message}")
                                 null
                             }
                         } else null
 
+                        // Register IDs so AlbumDetail / playAlbum / playArtist resolve YouTube browseIds
+                        SearchStateHolder.artistIdMap[artistModel.id] = browseId
+                        albumSections.forEach { section ->
+                            section.browseId?.let { bid ->
+                                SearchStateHolder.albumIdMap[section.albumId] = bid
+                            }
+                        }
+                        singlesAndEPs.forEach { section ->
+                            section.browseId?.let { bid ->
+                                SearchStateHolder.albumIdMap[section.albumId] = bid
+                            }
+                        }
+
                         _artistColorScheme.value = newScheme
                         _uiState.value = ArtistDetailUiState(
                             artist = artistModel,
-                            songs = allSongs,
+                            songs = popularSongs,
+                            popularSongs = popularSongs,
                             albumSections = albumSections,
-                            effectiveImageUrl = effectiveUrl,
+                            singlesAndEPs = singlesAndEPs,
+                            effectiveImageUrl = effectiveImageUrl,
                             isLoading = false,
                             isOnlineArtist = true,
                             artistDescription = artistPage.description,
-                            browseId = channelId,
+                            subscriberCount = artistItem.subscriberCountText,
+                            browseId = browseId,
+                            albumsMoreEndpoint = albumsSection?.moreEndpoint,
+                            singlesMoreEndpoint = singlesSection?.moreEndpoint,
+                            songsMoreEndpoint = ytSongsSection?.moreEndpoint
                         )
                     }.onFailure { e ->
-                        if (numericId != null) {
-                            loadLocalArtist(numericId)
-                        } else {
+                        _uiState.update {
+                            it.copy(
+                                error = context.getString(R.string.error_loading_artist, e.localizedMessage ?: ""),
+                                isLoading = false
+                            )
+                        }
+                    }
+                } else {
+                    val id = numericId ?: return@launch
+                    val artistDetailsFlow = musicRepository.getArtistById(id)
+                    val artistSongsFlow = musicRepository.getSongsForArtist(id)
+
+                    combine(artistDetailsFlow, artistSongsFlow) { artist, songs ->
+                        Log.d("ArtistDebug", "loadArtistData: id=$id found=${artist != null} songs=${songs.size}")
+                        artist to songs
+                    }
+                        .catch { e ->
                             _uiState.update {
                                 it.copy(
-                                    error = context.getString(
-                                        R.string.artist_error_loading_artist,
-                                        e.localizedMessage ?: ""
-                                    ),
+                                    error = context.getString(R.string.error_loading_artist, e.localizedMessage ?: ""),
                                     isLoading = false
                                 )
                             }
                         }
-                    }
-                    return@launch
-                }
+                        .collect { (artist, songs) ->
+                            if (artist == null) {
+                                _uiState.update {
+                                    it.copy(error = context.getString(R.string.could_not_find_artist), isLoading = false)
+                                }
+                                return@collect
+                            }
 
-                val id = numericId ?: run {
-                    _uiState.update {
-                        it.copy(
-                            error = context.getString(R.string.artist_detail_invalid_id),
-                            isLoading = false
-                        )
-                    }
-                    return@launch
+                            val albumSections = buildAlbumSections(songs)
+                            val orderedSongs = albumSections.flatMap { it.songs }
+
+                            val effectiveUrl = try {
+                                artistImageRepository.getEffectiveArtistImageUrl(
+                                    artistId = artist.id,
+                                    artistName = artist.name
+                                )
+                            } catch (e: Exception) {
+                                Log.w("ArtistDebug", "Failed to resolve effective artist image: ${e.message}")
+                                artist.effectiveImageUrl
+                            }
+
+                            val newScheme = if (!effectiveUrl.isNullOrBlank()) {
+                                try {
+                                    themeStateHolder.getOrGenerateColorScheme(effectiveUrl)
+                                } catch (e: Exception) {
+                                    Log.w("ArtistDebug", "Color scheme pre-warm failed: ${e.message}")
+                                    null
+                                }
+                            } else null
+
+                            _artistColorScheme.value = newScheme
+                            _uiState.value = ArtistDetailUiState(
+                                artist = artist.copy(
+                                    imageUrl = if (artist.customImageUri.isNullOrBlank()) effectiveUrl else artist.imageUrl
+                                ),
+                                songs = orderedSongs,
+                                popularSongs = emptyList(),
+                                albumSections = albumSections,
+                                singlesAndEPs = emptyList(),
+                                effectiveImageUrl = effectiveUrl,
+                                isLoading = false,
+                                isOnlineArtist = false
+                            )
+                        }
                 }
-                loadLocalArtist(id)
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
-                        error = context.getString(
-                            R.string.artist_error_loading_artist,
-                            e.localizedMessage ?: ""
-                        ),
+                        error = context.getString(R.string.error_loading_artist, e.localizedMessage ?: ""),
                         isLoading = false
                     )
                 }
@@ -285,62 +363,10 @@ class ArtistDetailViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadLocalArtist(id: Long) {
-        val artistDetailsFlow = musicRepository.getArtistById(id)
-        val artistSongsFlow = musicRepository.getSongsForArtist(id)
-
-        combine(artistDetailsFlow, artistSongsFlow) { artist, songs ->
-            Log.d("ArtistDebug", "loadLocalArtist: id=$id found=${artist != null} songs=${songs.size}")
-            artist to songs
-        }
-            .catch { e ->
-                _uiState.update {
-                    it.copy(
-                        error = context.getString(
-                            R.string.artist_error_loading_artist,
-                            e.localizedMessage ?: ""
-                        ),
-                        isLoading = false
-                    )
-                }
-            }
-            .collect { (artist, songs) ->
-                if (artist == null) {
-                    _uiState.update {
-                        it.copy(
-                            error = context.getString(R.string.artist_detail_id_not_found),
-                            isLoading = false
-                        )
-                    }
-                    return@collect
-                }
-
-                val orderedSongs = songs.sortedWith(songDisplayComparator)
-                val albumSections = buildAlbumSections(orderedSongs)
-
-                val effectiveUrl = artist.effectiveImageUrl
-                val newScheme = if (!effectiveUrl.isNullOrBlank()) {
-                    try {
-                        themeStateHolder.getOrGenerateColorScheme(effectiveUrl)
-                    } catch (e: Exception) {
-                        Log.w("ArtistDebug", "Failed to warm color scheme: ${e.message}")
-                        null
-                    }
-                } else null
-
-                _artistColorScheme.value = newScheme
-                _uiState.value = ArtistDetailUiState(
-                    artist = artist.copy(
-                        imageUrl = if (artist.customImageUri.isNullOrBlank()) effectiveUrl else artist.imageUrl
-                    ),
-                    songs = orderedSongs,
-                    albumSections = albumSections,
-                    effectiveImageUrl = effectiveUrl,
-                    isLoading = false
-                )
-            }
-    }
-
+    /**
+     * Called from the UI when the user selects a custom image from the system photo picker.
+     * Copies the image to internal storage, persists the path to DB, and triggers palette regeneration.
+     */
     fun setCustomImage(sourceUri: Uri) {
         val artistId = _uiState.value.artist?.id ?: return
         viewModelScope.launch {
@@ -428,16 +454,215 @@ class ArtistDetailViewModel @Inject constructor(
 
             currentState.copy(
                 albumSections = updatedAlbumSections,
+                popularSongs = currentState.popularSongs.filterNot { it.id == songId },
                 songs = currentState.songs.filterNot { it.id == songId }
             )
         }
     }
-}
 
+    private var allItemsJob: Job? = null
 
-private fun ytAlbumLongId(browseId: String, title: String = ""): Long {
-    val seed = browseId.ifBlank { title }.lowercase()
-    return -(16_000_000_000_000L + kotlin.math.abs(seed.hashCode().toLong()))
+    fun loadAllItems(type: String) {
+        val endpoint = if (type == "singles") {
+            _uiState.value.singlesMoreEndpoint
+        } else {
+            _uiState.value.albumsMoreEndpoint
+        }
+
+        if (endpoint == null) {
+            val initialItems = if (type == "singles") {
+                _uiState.value.singlesAndEPs
+            } else {
+                _uiState.value.albumSections
+            }
+            _uiState.update { it.copy(allItems = initialItems, allItemsContinuation = null, isAllItemsLoading = false) }
+            return
+        }
+
+        allItemsJob?.cancel()
+        allItemsJob = viewModelScope.launch {
+            _uiState.update { it.copy(isAllItemsLoading = true, allItems = emptyList(), allItemsContinuation = null, allItemsError = null) }
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    InnerTubeYouTube.artistItems(endpoint)
+                }
+                result.onSuccess { page ->
+                    val mappedItems = page.items.mapNotNull { item ->
+                        when (item) {
+                            is AlbumItem -> ArtistAlbumSection(
+                                albumId = item.browseId.hashCode().toLong(),
+                                title = item.title,
+                                year = item.year,
+                                albumArtUriString = item.thumbnail,
+                                browseId = item.browseId,
+                                songs = emptyList(),
+                                sectionType = if (type == "singles") ArtistSectionType.SINGLE_EP else ArtistSectionType.ALBUM
+                            )
+                            else -> null
+                        }
+                    }
+                    _uiState.update {
+                        it.copy(
+                            allItems = mappedItems,
+                            allItemsContinuation = page.continuation,
+                            isAllItemsLoading = false
+                        )
+                    }
+                }.onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            allItemsError = e.localizedMessage,
+                            isAllItemsLoading = false
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        allItemsError = e.localizedMessage,
+                        isAllItemsLoading = false
+                    )
+                }
+            }
+        }
+    }
+
+    fun loadMoreAllItems(type: String) {
+        val continuation = _uiState.value.allItemsContinuation ?: return
+        if (_uiState.value.isAllItemsLoading) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isAllItemsLoading = true) }
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    InnerTubeYouTube.artistItemsContinuation(continuation)
+                }
+                result.onSuccess { page ->
+                    val mappedItems = page.items.mapNotNull { item ->
+                        when (item) {
+                            is AlbumItem -> ArtistAlbumSection(
+                                albumId = item.browseId.hashCode().toLong(),
+                                title = item.title,
+                                year = item.year,
+                                albumArtUriString = item.thumbnail,
+                                browseId = item.browseId,
+                                songs = emptyList(),
+                                sectionType = if (type == "singles") ArtistSectionType.SINGLE_EP else ArtistSectionType.ALBUM
+                            )
+                            else -> null
+                        }
+                    }
+                    _uiState.update {
+                        it.copy(
+                            allItems = it.allItems + mappedItems,
+                            allItemsContinuation = page.continuation,
+                            isAllItemsLoading = false
+                        )
+                    }
+                }.onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            allItemsError = e.localizedMessage,
+                            isAllItemsLoading = false
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        allItemsError = e.localizedMessage,
+                        isAllItemsLoading = false
+                    )
+                }
+            }
+        }
+    }
+
+    private var popularSongsAllJob: Job? = null
+
+    fun loadAllPopularSongs() {
+        val endpoint = _uiState.value.songsMoreEndpoint
+        if (endpoint == null) {
+            _uiState.update { it.copy(popularSongsAll = it.popularSongs, popularSongsAllContinuation = null, isPopularSongsAllLoading = false) }
+            return
+        }
+
+        popularSongsAllJob?.cancel()
+        popularSongsAllJob = viewModelScope.launch {
+            _uiState.update { it.copy(isPopularSongsAllLoading = true, popularSongsAll = emptyList(), popularSongsAllContinuation = null, popularSongsAllError = null) }
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    InnerTubeYouTube.artistItems(endpoint)
+                }
+                result.onSuccess { page ->
+                    val mappedSongs = page.items.mapNotNull { item ->
+                        (item as? SongItem)?.toNativeSong()
+                    }
+                    _uiState.update {
+                        it.copy(
+                            popularSongsAll = mappedSongs,
+                            popularSongsAllContinuation = page.continuation,
+                            isPopularSongsAllLoading = false
+                        )
+                    }
+                }.onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            popularSongsAllError = e.localizedMessage,
+                            isPopularSongsAllLoading = false
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        popularSongsAllError = e.localizedMessage,
+                        isPopularSongsAllLoading = false
+                    )
+                }
+            }
+        }
+    }
+
+    fun loadMorePopularSongs() {
+        val continuation = _uiState.value.popularSongsAllContinuation ?: return
+        if (_uiState.value.isPopularSongsAllLoading) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPopularSongsAllLoading = true) }
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    InnerTubeYouTube.artistItemsContinuation(continuation)
+                }
+                result.onSuccess { page ->
+                    val mappedSongs = page.items.mapNotNull { item ->
+                        (item as? SongItem)?.toNativeSong()
+                    }
+                    _uiState.update {
+                        it.copy(
+                            popularSongsAll = it.popularSongsAll + mappedSongs,
+                            popularSongsAllContinuation = page.continuation,
+                            isPopularSongsAllLoading = false
+                        )
+                    }
+                }.onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            popularSongsAllError = e.localizedMessage,
+                            isPopularSongsAllLoading = false
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        popularSongsAllError = e.localizedMessage,
+                        isPopularSongsAllLoading = false
+                    )
+                }
+            }
+        }
+    }
 }
 
 private val songDisplayComparator = compareBy<Song> { it.discNumber ?: 1 }

@@ -38,6 +38,14 @@ sealed class Screen(val route: String) {
         fun createRoute(artistId: String) = "artist_detail/$artistId"
     }
 
+    object ArtistAlbumsAll : Screen("artist_albums_all/{artistId}/{type}") {
+        fun createRoute(artistId: String, type: String) = "artist_albums_all/$artistId/$type"
+    }
+
+    object ArtistSongsAll : Screen("artist_songs_all/{artistId}") {
+        fun createRoute(artistId: String) = "artist_songs_all/$artistId"
+    }
+
     object EditTransition : Screen("edit_transition?playlistId={playlistId}") {
         fun createRoute(playlistId: String?) =
             if (playlistId != null) "edit_transition?playlistId=$playlistId" else "edit_transition"

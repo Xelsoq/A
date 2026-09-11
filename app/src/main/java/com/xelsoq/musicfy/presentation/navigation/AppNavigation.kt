@@ -36,6 +36,8 @@ import com.xelsoq.musicfy.data.preferences.UserPreferencesRepository
 import com.xelsoq.musicfy.presentation.screens.AlbumDetailScreen
 import com.xelsoq.musicfy.presentation.screens.AccountsScreen
 import com.xelsoq.musicfy.presentation.screens.ArtistDetailScreen
+import com.xelsoq.musicfy.presentation.screens.ArtistSongsAllScreen
+import com.xelsoq.musicfy.presentation.screens.ArtistAlbumsAllScreen
 import com.xelsoq.musicfy.presentation.screens.ArtistSettingsScreen
 import com.xelsoq.musicfy.presentation.screens.DailyMixScreen
 import com.xelsoq.musicfy.presentation.screens.EditTransitionScreen
@@ -225,6 +227,18 @@ fun AppNavigation(
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                     AccountsScreen(
                         onBackClick = { navController.popBackStack() },
+                        onOpenNeteaseDashboard = {
+                            navController.navigateSafely(Screen.NeteaseDashboard.route)
+                        },
+                        onOpenQqMusicDashboard = {
+                            navController.navigateSafely(Screen.QqMusicDashboard.route)
+                        },
+                        onOpenNavidromeDashboard = {
+                            navController.navigateSafely(Screen.NavidromeDashboard.route)
+                        },
+                        onOpenJellyfinDashboard = {
+                            navController.navigateSafely(Screen.JellyfinDashboard.route)
+                        },
                         onOpenYoutubeAuth = {
                             navController.navigateSafely(Screen.YoutubeAuth.route)
                         }
@@ -369,6 +383,38 @@ fun AppNavigation(
                             playerViewModel = playerViewModel
                         )
                     }
+                }
+            }
+            composable(
+                route = Screen.ArtistSongsAll.route,
+                arguments = listOf(
+                    navArgument("artistId") { type = NavType.StringType }
+                ),
+            ) { backStackEntry ->
+                val artistId = backStackEntry.arguments?.getString("artistId") ?: return@composable
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    ArtistSongsAllScreen(
+                        artistId = artistId,
+                        navController = navController,
+                        playerViewModel = playerViewModel
+                    )
+                }
+            }
+            composable(
+                route = Screen.ArtistAlbumsAll.route,
+                arguments = listOf(
+                    navArgument("artistId") { type = NavType.StringType },
+                    navArgument("type") { type = NavType.StringType }
+                ),
+            ) { backStackEntry ->
+                val artistId = backStackEntry.arguments?.getString("artistId") ?: return@composable
+                val albumType = backStackEntry.arguments?.getString("type") ?: "albums"
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    ArtistAlbumsAllScreen(
+                        artistId = artistId,
+                        type = albumType,
+                        navController = navController
+                    )
                 }
             }
             composable(
