@@ -154,24 +154,42 @@ class ArtistDetailViewModel @Inject constructor(
             try {
                 val numericId = artistIdStr.toLongOrNull()
                 var browseId: String? = null
-                if (numericId == null || artistIdStr.startsWith("UC") || artistIdStr.startsWith("LA")) {
+                // Channel / browse ids come through as plain strings (UC… / LA… / MP…)
+                if (artistIdStr.startsWith("UC") || artistIdStr.startsWith("LA") ||
+                    artistIdStr.startsWith("MP") || numericId == null
+                ) {
                     browseId = artistIdStr
                 } else {
-                    val localArtist = musicRepository.getArtistById(numericId).first()
-                    if (localArtist != null) {
-                        val primaryArtistName = localArtist.name.split(
-                            ", ", " & ", " feat.", " feat ", " Feat.", " Feat ", " FT.", " FT ", " ft.", " ft "
-                        ).firstOrNull()?.trim() ?: localArtist.name
+                    // Synthetic Long from online search → resolve mapped YouTube channel id first
+                    SearchStateHolder.artistIdMap[numericId]?.let { mapped ->
+                        browseId = mapped
+                    }
+                    if (browseId == null) {
+                        val localArtist = musicRepository.getArtistById(numericId).first()
+                        if (localArtist != null) {
+                            val primaryArtistName = localArtist.name.split(
+                                ", ", " & ", " feat.", " feat ", " Feat.", " Feat ",
+                                " FT.", " FT ", " ft.", " ft "
+                            ).firstOrNull()?.trim() ?: localArtist.name
 
-                        val searchResult = withContext(Dispatchers.IO) {
-                            InnerTubeYouTube.search(primaryArtistName, InnerTubeYouTube.SearchFilter.FILTER_ARTIST).getOrNull()
+                            val searchResult = withContext(Dispatchers.IO) {
+                                InnerTubeYouTube.search(
+                                    primaryArtistName,
+                                    InnerTubeYouTube.SearchFilter.FILTER_ARTIST
+                                ).getOrNull()
+                            }
+                            val artistItem = searchResult?.items?.find { it is ArtistItem } as? ArtistItem
+                            browseId = artistItem?.id
                         }
-                        val artistItem = searchResult?.items?.find { it is ArtistItem } as? ArtistItem
-                        browseId = artistItem?.id
                     }
                 }
 
-                if (browseId != null && (browseId.startsWith("UC") || browseId.startsWith("LA") || numericId == null)) {
+                if (browseId != null && (
+                        browseId.startsWith("UC") || browseId.startsWith("LA") ||
+                            browseId.startsWith("MP") || numericId == null ||
+                            SearchStateHolder.artistIdMap.containsValue(browseId)
+                        )
+                ) {
                     val artistPageResult = withContext(Dispatchers.IO) {
                         InnerTubeYouTube.artist(browseId)
                     }
@@ -179,24 +197,34 @@ class ArtistDetailViewModel @Inject constructor(
                     artistPageResult.onSuccess { artistPage ->
                         val artistItem = artistPage.artist
 
-                        // ── Popular Songs: extract from the "Songs" section ──
-                        val ytSongsSection = artistPage.sections.find {
-                            it.title.contains("Songs", ignoreCase = true) ||
-                            it.title.contains("Popular", ignoreCase = true)
-                        }
-                        val popularSongs = ytSongsSection?.items?.mapNotNull { item ->
-                            (item as? SongItem)?.toNativeSong()
-                        }?.take(10) ?: emptyList()
-
-                        val artistModel = Artist(
-                            id = -(17_000_000_000_000L + kotlin.math.abs(browseId.hashCode().toLong())),
-                            name = artistItem.title,
-                            songCount = popularSongs.size,
-                            imageUrl = artistItem.thumbnail
+                        // Log section titles for debugging incomplete artist pages
+                        Log.d(
+                            "ArtistDebug",
+                            "YT sections: " + artistPage.sections.joinToString { "\"${it.title}\"(${it.items.size})" }
                         )
 
-                        // ── Albums: sections titled "Albums" or "Releases" ──
-                        fun AlbumItem.toAlbumSection(artistTitle: String, artistIdHash: Long): ArtistAlbumSection {
+                        fun isSongsTitle(title: String): Boolean {
+                            val t = title.lowercase()
+                            return t.contains("song") || t.contains("popular") ||
+                                t.contains("top track") || t.contains("top song") ||
+                                t.contains("hits") || t.contains("track")
+                        }
+
+                        fun isSinglesTitle(title: String): Boolean {
+                            val t = title.lowercase()
+                            // Avoid matching "Albums" via accidental substrings
+                            return t.contains("single") || t.contains("ep") ||
+                                t.contains("shorts")
+                        }
+
+                        fun isAlbumsTitle(title: String): Boolean {
+                            val t = title.lowercase()
+                            if (isSinglesTitle(title)) return false
+                            return t.contains("album") || t.contains("release") ||
+                                t.contains("discography") || t.contains("full length")
+                        }
+
+                        fun AlbumItem.toAlbumSection(type: ArtistSectionType): ArtistAlbumSection {
                             val longId = -(16_000_000_000_000L + kotlin.math.abs(this.browseId.hashCode().toLong()))
                             return ArtistAlbumSection(
                                 albumId = longId,
@@ -204,44 +232,61 @@ class ArtistDetailViewModel @Inject constructor(
                                 year = this.year,
                                 albumArtUriString = this.thumbnail,
                                 browseId = this.browseId,
-                                songs = emptyList(), // Albums shown as cards; songs loaded on album detail
-                                sectionType = ArtistSectionType.ALBUM
+                                songs = emptyList(),
+                                sectionType = type
                             )
                         }
 
-                        val albumsSection = artistPage.sections.firstOrNull { section ->
-                            section.title.contains("Albums", ignoreCase = true) ||
-                            section.title.contains("Releases", ignoreCase = true)
-                        }
-                        val albumSections = albumsSection?.items?.mapNotNull { item ->
-                            when (item) {
-                                is AlbumItem -> item.toAlbumSection(artistItem.title, browseId.hashCode().toLong())
-                                else -> null
+                        // ── Popular Songs: prefer titled shelf, else any shelf with SongItems ──
+                        val ytSongsSection = artistPage.sections.firstOrNull { isSongsTitle(it.title) }
+                            ?: artistPage.sections.firstOrNull { section ->
+                                section.items.any { it is SongItem }
                             }
-                        }.orEmpty()
+                        val popularSongs = ytSongsSection?.items
+                            ?.mapNotNull { (it as? SongItem)?.toNativeSong() }
+                            ?.take(10)
+                            .orEmpty()
+                            .ifEmpty {
+                                // Fallback: harvest SongItems from every section
+                                artistPage.sections
+                                    .flatMap { it.items }
+                                    .mapNotNull { (it as? SongItem)?.toNativeSong() }
+                                    .distinctBy { it.id }
+                                    .take(10)
+                            }
 
-                        // ── Singles & EPs: sections titled "Singles", "EP", or "EPs" ──
-                        val singlesSection = artistPage.sections.firstOrNull { section ->
-                            section.title.contains("Single", ignoreCase = true) ||
-                            section.title.contains("EP", ignoreCase = true)
+                        // ── Albums / Singles: match by title, then fall back by remaining AlbumItems ──
+                        val albumsSection = artistPage.sections.firstOrNull { isAlbumsTitle(it.title) }
+                        val singlesSection = artistPage.sections.firstOrNull { isSinglesTitle(it.title) }
+
+                        var albumSections = albumsSection?.items
+                            ?.mapNotNull { (it as? AlbumItem)?.toAlbumSection(ArtistSectionType.ALBUM) }
+                            .orEmpty()
+
+                        var singlesAndEPs = singlesSection?.items
+                            ?.mapNotNull { (it as? AlbumItem)?.toAlbumSection(ArtistSectionType.SINGLE_EP) }
+                            .orEmpty()
+
+                        // If Albums shelf was missing, collect AlbumItems not already in singles
+                        if (albumSections.isEmpty()) {
+                            val singleIds = singlesAndEPs.mapNotNull { it.browseId }.toSet()
+                            albumSections = artistPage.sections
+                                .filter { !isSinglesTitle(it.title) && !isSongsTitle(it.title) }
+                                .flatMap { it.items }
+                                .mapNotNull { (it as? AlbumItem) }
+                                .filter { it.browseId !in singleIds }
+                                .map { it.toAlbumSection(ArtistSectionType.ALBUM) }
+                                .distinctBy { it.browseId }
                         }
-                        val singlesAndEPs = singlesSection?.items?.mapNotNull { item ->
-                            when (item) {
-                                is AlbumItem -> {
-                                    val longId = -(16_000_000_000_000L + kotlin.math.abs(item.browseId.hashCode().toLong()))
-                                    ArtistAlbumSection(
-                                        albumId = longId,
-                                        title = item.title,
-                                        year = item.year,
-                                        albumArtUriString = item.thumbnail,
-                                        browseId = item.browseId,
-                                        songs = emptyList(),
-                                        sectionType = ArtistSectionType.SINGLE_EP
-                                    )
-                                }
-                                else -> null
-                            }
-                        }.orEmpty()
+
+                        // If Singles shelf was missing, leave empty (do not steal albums)
+
+                        val artistModel = Artist(
+                            id = -(17_000_000_000_000L + kotlin.math.abs(browseId.hashCode().toLong())),
+                            name = artistItem.title,
+                            songCount = popularSongs.size,
+                            imageUrl = artistItem.thumbnail
+                        )
 
                         val effectiveImageUrl = artistItem.thumbnail
                         val newScheme = if (!effectiveImageUrl.isNullOrBlank()) {
