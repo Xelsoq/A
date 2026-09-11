@@ -6,6 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.xelsoq.musicfy.data.model.Genre
 import com.xelsoq.musicfy.data.model.Song
 import com.xelsoq.musicfy.data.repository.MusicRepository
+import com.xelsoq.musicfy.data.remote.youtube.toNativeSong
+import unshoo.ianshulyadav.pixelmusic.innertube.YouTube
+import unshoo.ianshulyadav.pixelmusic.innertube.models.SongItem
+import unshoo.ianshulyadav.pixelmusic.innertube.models.filterVideo
+import timber.log.Timber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -152,7 +157,25 @@ class GenreDetailViewModel @Inject constructor(
                             darkColorHex = "#616161", onDarkColorHex = "#FFFFFF"
                         )
 
-                    val songs = musicRepository.getMusicByGenre(genre.name).first()
+                    var songs = musicRepository.getMusicByGenre(genre.name).first()
+
+                    // No local tracks for this category (common for curated YT browse tiles):
+                    // pull a song shelf from YouTube Music search.
+                    if (songs.isEmpty()) {
+                        try {
+                            val yt = withContext(Dispatchers.IO) {
+                                YouTube.search(genre.name, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+                            }
+                            songs = yt?.items
+                                ?.filterIsInstance<SongItem>()
+                                ?.filterVideo(false)
+                                ?.map { it.toNativeSong() }
+                                .orEmpty()
+                        } catch (e: Exception) {
+                            Timber.e(e, "YouTube fallback failed for genre %s", genre.name)
+                        }
+                    }
+
                     val artists = musicRepository.getArtists().first()
                     artistMap = artists.associate { it.name.trim().lowercase() to it.imageUrl }
 

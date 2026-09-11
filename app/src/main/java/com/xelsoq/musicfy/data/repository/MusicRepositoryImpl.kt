@@ -107,6 +107,33 @@ class MusicRepositoryImpl @Inject constructor(
         private const val SEARCH_RESULTS_LIMIT = 100
         private const val UNKNOWN_GENRE_NAME = "Unknown"
         private const val UNKNOWN_GENRE_ID = "unknown"
+
+        /**
+         * Curated browse categories (YouTube Music style) so Search → Browse by genre
+         * is never a single "YouTube" tile when the library only has streamed tracks.
+         */
+        private val CURATED_BROWSE_GENRES = listOf(
+            "Pop",
+            "Rock",
+            "Hip Hop",
+            "Electronic",
+            "R&B",
+            "Latin",
+            "Indie",
+            "Metal",
+            "Jazz",
+            "Classical",
+            "Country",
+            "K-Pop",
+            "Afrobeats",
+            "Reggae",
+            "Soul",
+            "Punk",
+            "Folk",
+            "Blues",
+            "Dance",
+            "Alternative",
+        )
     }
 
     private val directoryScanMutex = Mutex()
@@ -887,15 +914,25 @@ class MusicRepositoryImpl @Inject constructor(
                             .flatMap { raw -> raw.split(",") } // split "Rock, Pop" → ["Rock", "Pop"]
                             .map { it.trim() }
                             .filter { it.isNotBlank() }
+                            // Synthetic label used by YouTube stream mapper — not a real genre category
+                            .filter { !it.equals("YouTube", ignoreCase = true) }
+                            .filter { !it.equals("YouTube Music", ignoreCase = true) }
                             .map { buildGenre(it) }
-                            .distinctBy { it.id }
+                            .distinctBy { it.id.lowercase() }
+                            .toList()
+
+                        val curatedGenres = CURATED_BROWSE_GENRES.map { buildGenre(it) }
+
+                        val merged = (knownGenres + curatedGenres)
+                            .distinctBy { it.id.lowercase() }
                             .sortedBy { it.name.lowercase() }
                             .toList()
-                        val unknownAlreadyPresent = knownGenres.any { it.id == UNKNOWN_GENRE_ID }
+
+                        val unknownAlreadyPresent = merged.any { it.id == UNKNOWN_GENRE_ID }
                         if (hasUnknown && !unknownAlreadyPresent) {
-                            knownGenres + buildGenre(UNKNOWN_GENRE_NAME)
+                            merged + buildGenre(UNKNOWN_GENRE_NAME)
                         } else {
-                            knownGenres
+                            merged
                         }
                     }
                 )

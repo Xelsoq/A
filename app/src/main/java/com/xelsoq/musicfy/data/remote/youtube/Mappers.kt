@@ -67,7 +67,7 @@ fun SongItem.toNativeSong(): Song {
         contentUriString = "youtube://$id",
         albumArtUriString = upgradeThumbnailUrlToHighQuality(thumbnail),
         duration = (duration ?: 0) * 1000L,
-        genre = "YouTube",
+        genre = null, // avoid polluting Browse-by-genre with a single "YouTube" tile
         lyrics = null,
         isFavorite = false,
         trackNumber = 0,
@@ -120,7 +120,7 @@ fun com.xelsoq.musicfy.data.model.youtube.Song.toNativeSong(): Song {
         contentUriString = "youtube://$youtubeId",
         albumArtUriString = upgradeThumbnailUrlToHighQuality(thumbnailPath ?: thumbnailHref),
         duration = parseDurationStringToMillis(duration),
-        genre = "YouTube",
+        genre = null, // avoid polluting Browse-by-genre with a single "YouTube" tile
         lyrics = null,
         isFavorite = false,
         trackNumber = 0,
