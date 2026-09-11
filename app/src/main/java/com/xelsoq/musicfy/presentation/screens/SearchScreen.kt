@@ -61,6 +61,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -160,7 +161,8 @@ private const val MAX_ALBUM_MULTI_SELECTION = 6
 
 private data class SearchUiSlice(
     val selectedSearchFilter: SearchFilterType = SearchFilterType.ALL,
-    val searchResults: ImmutableList<SearchResultItem> = persistentListOf()
+    val searchResults: ImmutableList<SearchResultItem> = persistentListOf(),
+    val isSearching: Boolean = false,
 )
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -237,7 +239,8 @@ fun SearchScreen(
             .map { uiState ->
                 SearchUiSlice(
                     selectedSearchFilter = uiState.selectedSearchFilter,
-                    searchResults = uiState.searchResults
+                    searchResults = uiState.searchResults,
+                    isSearching = uiState.isSearching,
                 )
             }
             .distinctUntilChanged()
@@ -268,6 +271,7 @@ fun SearchScreen(
         playerViewModel.performSearch(searchQuery)
     }
     val searchResults = searchUiState.searchResults
+    val isSearching = searchUiState.isSearching
     val handleSongMoreOptionsClick: (Song) -> Unit = { song ->
         playerViewModel.selectSongForInfo(song)
         showSongInfoBottomSheet = true
@@ -596,9 +600,17 @@ fun SearchScreen(
                                 SearchFilterChip(SearchFilterType.PLAYLISTS, currentFilter, playerViewModel)
                             }
                         }
+                        if (isSearching) {
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                            )
+                        }
+
                         Box(modifier = Modifier.fillMaxSize()) {
                             Crossfade(
-                                targetState = searchResults.isEmpty(),
+                                targetState = searchResults.isEmpty() && !isSearching,
                                 animationSpec = tween(durationMillis = 190),
                                 label = "search_results_fade"
                             ) { isEmpty ->

@@ -4,6 +4,7 @@ import com.xelsoq.musicfy.data.model.Album
 import com.xelsoq.musicfy.data.model.Artist
 import com.xelsoq.musicfy.data.model.Song
 import com.xelsoq.musicfy.data.model.StorageFilter
+import com.xelsoq.musicfy.data.remote.youtube.toNativeSong
 import com.xelsoq.musicfy.data.repository.MusicRepository
 import com.xelsoq.musicfy.utils.QueueUtils
 import kotlinx.coroutines.CoroutineScope
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import unshoo.ianshulyadav.pixelmusic.innertube.YouTube as InnerTubeYouTube
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -242,8 +244,21 @@ class QueueStateHolder @Inject constructor(
     fun playAlbum(album: Album, callbacks: PlaybackSourceCallbacks) {
         callbacks.scope.launch {
             try {
-                val songsList: List<Song> = withContext(Dispatchers.IO) {
+                var songsList: List<Song> = withContext(Dispatchers.IO) {
                     musicRepository.getSongsForAlbum(album.id).first()
+                }
+
+                // Online YouTube album from search: resolve via browseId when local DB is empty
+                if (songsList.isEmpty()) {
+                    val browseId = SearchStateHolder.albumIdMap[album.id]
+                    if (!browseId.isNullOrBlank()) {
+                        val online = withContext(Dispatchers.IO) {
+                            InnerTubeYouTube.album(browseId).getOrNull()
+                        }
+                        if (online != null) {
+                            songsList = online.songs.map { it.toNativeSong() }
+                        }
+                    }
                 }
 
                 if (songsList.isNotEmpty()) {

@@ -74,6 +74,9 @@ class SearchStateHolder @Inject constructor(
     private val _searchHistory = MutableStateFlow<ImmutableList<SearchHistoryItem>>(persistentListOf())
     val searchHistory = _searchHistory.asStateFlow()
 
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching = _isSearching.asStateFlow()
+
     private val searchRequests = MutableSharedFlow<SearchRequest>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -101,10 +104,12 @@ class SearchStateHolder @Inject constructor(
                         if (_searchResults.value.isNotEmpty()) {
                             _searchResults.value = persistentListOf()
                         }
+                        _isSearching.value = false
                         return@collectLatest
                     }
 
                     try {
+                        _isSearching.value = true
                         val source = userPreferencesRepository.searchSourceFlow.first()
                         if (source == SearchSource.LOCAL) {
                             performLocalSearch(normalizedQuery, request.requestId)
@@ -117,6 +122,10 @@ class SearchStateHolder @Inject constructor(
                         if (request.requestId == latestSearchRequestId.get()) {
                             Timber.e(e, "Error performing search for query: $normalizedQuery")
                             _searchResults.value = persistentListOf()
+                        }
+                    } finally {
+                        if (request.requestId == latestSearchRequestId.get()) {
+                            _isSearching.value = false
                         }
                     }
                 }
