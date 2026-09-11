@@ -294,7 +294,9 @@ fun HomeScreen(
     // Fade/blur: da barra de status até a metade da topbar (mesmo estilo do fade
     // que já existe embaixo, atrás da barra de navegação). Blur progressivo
     // (mais forte no topo, sumindo gradualmente) + tint escuro para contraste.
-    val topGradientHeight = statusBarHeight + 32.dp
+    // A altura cobre a status bar + ~metade da TopAppBar para o fade terminar
+    // suavemente antes de sair da área da topbar.
+    val topGradientHeight = statusBarHeight + 36.dp
     val hazeState = rememberHazeState()
 
     // Persist the scroll position across navigation away/back. The Stats card and other
@@ -343,19 +345,14 @@ fun HomeScreen(
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
+                // TopBar + blur overlay: o efeito fica sob a topbar (nítida),
+                // amostrando o conteúdo via hazeSource no Box que envolve a lista.
+                // Estrutura em irmãos garante que qualquer card/imagem/texto que
+                // passe atrás seja capturado de forma uniforme em toda a largura.
                 Box(modifier = Modifier.fillMaxWidth()) {
-                    // Blur progressivo + fade atrás da topbar: sempre visível, da barra de
-                    // status até a metade da topbar (a topbar em si permanece nítida e
-                    // transparente). O blur é mais forte no topo e some gradualmente.
-                    //
-                    // forceInvalidateOnPreDraw: sem isso, o Haze só re-blurra a área quando
-                    // ele mesmo detecta uma mudança "interna" (tint/radius/etc). Conteúdo do
-                    // hazeSource (cards do LazyColumn sendo recompostos/reciclados durante o
-                    // scroll, imagens do Coil chegando de forma assíncrona) muda por fora
-                    // disso, e o Haze não é avisado — daí alguns cards ficarem sem blur ou
-                    // imagens aparecerem só parcialmente desfocadas até a próxima invalidação
-                    // "de verdade". Essa flag força o Haze a reamostrar o conteúdo a cada
-                    // pre-draw, então ele sempre reflete o frame atual.
+                    // Camada de blur progressivo: cobre toda a largura, fade vertical
+                    // contínuo (forte no topo / status bar → some gradualmente).
+                    // Aplicado na camada sobre o conteúdo, não por elemento.
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -371,10 +368,12 @@ fun HomeScreen(
                                     noiseFactor = 0f
                                 )
                             ) {
-                                forceInvalidateOnPreDraw = true
+                                // Progressive blur: intensidade 1 no topo → 0 no final
+                                // da área. EaseIn para o fade parecer natural (sem corte).
                                 progressive = HazeProgressive.verticalGradient(
                                     startIntensity = 1f,
-                                    endIntensity = 0f
+                                    endIntensity = 0f,
+                                    preferPerformance = false
                                 )
                             }
                     )
@@ -398,19 +397,28 @@ fun HomeScreen(
                 }
             }
         ) { innerPadding ->
-            LazyColumn(
-                state = listState,
+            // hazeSource no Box pai (e não diretamente no LazyColumn) evita os
+            // problemas conhecidos de captura parcial com Lazy layouts:
+            // blur só no centro, bordas nítidas em cards/imagens, texto sem blur.
+            // O Box ocupa a área completa (incluindo a região sob a topbar),
+            // então qualquer conteúdo que role por trás é amostrado de forma uniforme.
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .hazeSource(state = hazeState),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = paddingValuesParent.calculateBottomPadding()
-                            + 38.dp + bottomPadding
-                ),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                    .hazeSource(state = hazeState)
             ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                    contentPadding = PaddingValues(
+                        top = innerPadding.calculateTopPadding(),
+                        bottom = paddingValuesParent.calculateBottomPadding()
+                                + 38.dp + bottomPadding
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
 
                 // YouTube Music Quick Picks
                 if (quickPicks.isNotEmpty()) {
@@ -600,8 +608,9 @@ fun HomeScreen(
                         )
                     }
                 }
-            }
-        }
+            } // LazyColumn
+            } // Box (hazeSource)
+        } // Scaffold content
         Box(
             modifier = Modifier
                 .fillMaxWidth()
