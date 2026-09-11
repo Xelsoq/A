@@ -175,11 +175,9 @@ fun ArtistAlbumsAllScreen(
                             AlbumGridCard(
                                 section = section,
                                 onClick = {
-                                    section.browseId?.let { browseId ->
-                                        navController.navigateSafely(
-                                            Screen.AlbumDetail.createRoute(browseId)
-                                        )
-                                    }
+                                    navController.navigateSafely(
+                                        Screen.AlbumDetail.createRoute(section.albumId)
+                                    )
                                 }
                             )
                         }

@@ -59,9 +59,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import com.xelsoq.musicfy.ui.theme.LocalPixelMusicDarkTheme
+import com.xelsoq.musicfy.ui.theme.LocalMusicfyDarkTheme
 import com.xelsoq.musicfy.ui.theme.GoogleSansRounded
-import com.xelsoq.musicfy.ui.theme.PixelMusicStatusBarStyle
+import com.xelsoq.musicfy.ui.theme.MusicfyStatusBarStyle
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.util.lerp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -143,7 +143,7 @@ fun ArtistDetailScreen(
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
-    val isDarkTheme = LocalPixelMusicDarkTheme.current
+    val isDarkTheme = LocalMusicfyDarkTheme.current
     val baseColorScheme = MaterialTheme.colorScheme
 
     // --- Dynamic color palette from pre-warmed ViewModel state ---
@@ -411,11 +411,10 @@ fun ArtistDetailScreen(
                                             year = section.year,
                                             thumbnailUrl = section.albumArtUriString,
                                             onClick = {
-                                                section.browseId?.let { browseId ->
-                                                    navController.navigateSafely(
-                                                        Screen.AlbumDetail.createRoute(browseId)
-                                                    )
-                                                }
+                                                // albumId is a synthetic Long mapped to YT browseId in albumIdMap
+                                                navController.navigateSafely(
+                                                    Screen.AlbumDetail.createRoute(section.albumId)
+                                                )
                                             }
                                         )
                                     }
@@ -455,11 +454,10 @@ fun ArtistDetailScreen(
                                             year = section.year,
                                             thumbnailUrl = section.albumArtUriString,
                                             onClick = {
-                                                section.browseId?.let { browseId ->
-                                                    navController.navigateSafely(
-                                                        Screen.AlbumDetail.createRoute(browseId)
-                                                    )
-                                                }
+                                                // albumId is a synthetic Long mapped to YT browseId in albumIdMap
+                                                navController.navigateSafely(
+                                                    Screen.AlbumDetail.createRoute(section.albumId)
+                                                )
                                             }
                                         )
                                     }
@@ -581,12 +579,12 @@ fun ArtistDetailScreen(
                             onSubscribeClick = { viewModel.toggleSubscription() },
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
-                                playerViewModel.playArtistSongsShuffledWithRelated(
-                                    artistName = artist.name,
-                                    initialArtistSongs = songs,
-                                    songsMoreEndpoint = uiState.songsMoreEndpoint,
-                                    isOnline = uiState.isOnlineArtist
-                                )
+                                if (songs.isNotEmpty()) {
+                                    playerViewModel.playSongsShuffled(
+                                        songsToPlay = songs,
+                                        queueName = artist.name
+                                    )
+                                }
                             },
                             onChangeImage = { imagePickerLauncher.launch("image/*") },
                             onClearCustomImage = { viewModel.clearCustomImage() }
@@ -604,12 +602,12 @@ fun ArtistDetailScreen(
                             headerImageRequestSize = headerImageRequestSize,
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
-                                playerViewModel.playArtistSongsShuffledWithRelated(
-                                    artistName = artist.name,
-                                    initialArtistSongs = songs,
-                                    songsMoreEndpoint = uiState.songsMoreEndpoint,
-                                    isOnline = uiState.isOnlineArtist
-                                )
+                                if (songs.isNotEmpty()) {
+                                    playerViewModel.playSongsShuffled(
+                                        songsToPlay = songs,
+                                        queueName = artist.name
+                                    )
+                                }
                             },
                             onChangeImage = { imagePickerLauncher.launch("image/*") },
                             onClearCustomImage = { viewModel.clearCustomImage() }
@@ -696,9 +694,6 @@ fun ArtistDetailScreen(
                         replayGainAlbumGainDb,
                         coverArtUpdate
                     )
-                },
-                generateAiMetadata = { fields ->
-                    playerViewModel.generateAiMetadata(currentSong, fields)
                 },
                 removeFromListTrigger = removeFromListTrigger
             )
@@ -1155,7 +1150,7 @@ private fun SharedArtistTopBarProbe(
     var showImageMenu by remember { mutableStateOf(false) }
     val surfaceColor = MaterialTheme.colorScheme.surface
     val statusBarColor =
-        if (LocalPixelMusicDarkTheme.current) Color.Black.copy(alpha = 0.6f)
+        if (LocalMusicfyDarkTheme.current) Color.Black.copy(alpha = 0.6f)
         else Color.White.copy(alpha = 0.4f)
     val solidAlpha = (collapseFraction * 2f).coerceIn(0f, 1f)
     val expandedContentAlpha = 1f - solidAlpha
@@ -1182,7 +1177,7 @@ private fun SharedArtistTopBarProbe(
     val titleVerticalBias = lerp(1f, -1f, collapseFraction)
     val shuffleAlignment = BiasAlignment(horizontalBias = 1f, verticalBias = titleVerticalBias)
 
-    PixelMusicStatusBarStyle(color = fallbackStatusBarColor)
+    MusicfyStatusBarStyle(color = fallbackStatusBarColor)
 
     Box(
         modifier = Modifier
@@ -1354,7 +1349,7 @@ private fun CustomCollapsingTopBar(
     onClearCustomImage: () -> Unit
 ) {
     val surfaceColor = MaterialTheme.colorScheme.surface
-    val statusBarColor = if (LocalPixelMusicDarkTheme.current) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.4f)
+    val statusBarColor = if (LocalMusicfyDarkTheme.current) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.4f)
 
     // --- Animation Values ---
     val fabScale = 1f - collapseFraction
@@ -1403,7 +1398,7 @@ private fun CustomCollapsingTopBar(
             .height(headerHeight)
             .clipToBounds()
     ) {
-        PixelMusicStatusBarStyle(color = fallbackStatusBarColor)
+        MusicfyStatusBarStyle(color = fallbackStatusBarColor)
 
         Box(
             modifier = Modifier

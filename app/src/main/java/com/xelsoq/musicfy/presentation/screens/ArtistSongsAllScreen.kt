@@ -291,9 +291,6 @@ fun ArtistSongsAllScreen(
                         coverArtUpdate
                     )
                 },
-                generateAiMetadata = { fields ->
-                    playerViewModel.generateAiMetadata(currentSong, fields)
-                },
                 removeFromListTrigger = removeFromListTrigger
             )
         }
