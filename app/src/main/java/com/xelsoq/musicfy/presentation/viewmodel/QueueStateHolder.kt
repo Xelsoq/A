@@ -285,8 +285,28 @@ class QueueStateHolder @Inject constructor(
     fun playArtist(artist: Artist, callbacks: PlaybackSourceCallbacks) {
         callbacks.scope.launch {
             try {
-                val songsList: List<Song> = withContext(Dispatchers.IO) {
+                var songsList: List<Song> = withContext(Dispatchers.IO) {
                     musicRepository.getSongsForArtist(artist.id).first()
+                }
+
+                // YouTube / online artist from search — resolve via channel browseId
+                if (songsList.isEmpty()) {
+                    val browseId = SearchStateHolder.artistIdMap[artist.id]
+                    if (!browseId.isNullOrBlank()) {
+                        val page = withContext(Dispatchers.IO) {
+                            InnerTubeYouTube.artist(browseId).getOrNull()
+                        }
+                        if (page != null) {
+                            val ytSongsSection = page.sections.find {
+                                it.title.contains("Songs", ignoreCase = true) ||
+                                    it.title.contains("Popular", ignoreCase = true) ||
+                                    it.title.contains("Top", ignoreCase = true)
+                            }
+                            songsList = ytSongsSection?.items
+                                ?.mapNotNull { (it as? SongItem)?.toNativeSong() }
+                                .orEmpty()
+                        }
+                    }
                 }
 
                 if (songsList.isNotEmpty()) {
