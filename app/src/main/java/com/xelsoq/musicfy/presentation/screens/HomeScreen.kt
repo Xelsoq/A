@@ -347,6 +347,15 @@ fun HomeScreen(
                     // Blur progressivo + fade atrás da topbar: sempre visível, da barra de
                     // status até a metade da topbar (a topbar em si permanece nítida e
                     // transparente). O blur é mais forte no topo e some gradualmente.
+                    //
+                    // forceInvalidateOnPreDraw: sem isso, o Haze só re-blurra a área quando
+                    // ele mesmo detecta uma mudança "interna" (tint/radius/etc). Conteúdo do
+                    // hazeSource (cards do LazyColumn sendo recompostos/reciclados durante o
+                    // scroll, imagens do Coil chegando de forma assíncrona) muda por fora
+                    // disso, e o Haze não é avisado — daí alguns cards ficarem sem blur ou
+                    // imagens aparecerem só parcialmente desfocadas até a próxima invalidação
+                    // "de verdade". Essa flag força o Haze a reamostrar o conteúdo a cada
+                    // pre-draw, então ele sempre reflete o frame atual.
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -362,6 +371,7 @@ fun HomeScreen(
                                     noiseFactor = 0f
                                 )
                             ) {
+                                forceInvalidateOnPreDraw = true
                                 progressive = HazeProgressive.verticalGradient(
                                     startIntensity = 1f,
                                     endIntensity = 0f

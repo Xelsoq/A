@@ -88,6 +88,7 @@ fun OptimizedAlbumArt(
         when (uri) {
             is ImageRequest -> uri.newBuilder(context).apply {
                 size(requestTargetSize)
+                allowHardware(false)
                 if (uri.memoryCacheKey == null) {
                     memoryCacheKey(memoryCacheKey)
                 }
@@ -98,6 +99,12 @@ fun OptimizedAlbumArt(
                 .crossfade(350) // Use Coil's native crossfade
                 .error(R.drawable.ic_music_placeholder)
                 .size(requestTargetSize)
+                // Bitmaps de hardware (GPU) não são lidos corretamente quando a camada é
+                // capturada e desfocada via RenderEffect/GraphicsLayer (usado pelo Haze no
+                // blur da topbar), causando artefato de "só o centro desfoca". SmartImage já
+                // desliga isso por padrão; aqui os cards de álbum (Home, etc.) usam este
+                // request diretamente, então precisa do mesmo ajuste.
+                .allowHardware(false)
                 .memoryCachePolicy(CachePolicy.ENABLED)
                 .diskCachePolicy(if (isStableLocalArtwork) CachePolicy.DISABLED else CachePolicy.ENABLED)
                 .apply {
