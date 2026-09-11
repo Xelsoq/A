@@ -96,6 +96,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.xelsoq.musicfy.data.model.Album
 import com.xelsoq.musicfy.data.model.Genre
@@ -140,6 +141,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavHostController
 import com.xelsoq.musicfy.R
+import com.xelsoq.musicfy.ui.theme.GoogleSansRounded
 import com.xelsoq.musicfy.data.repository.MusicRepository
 import com.xelsoq.musicfy.presentation.components.MiniPlayerHeight
 import com.xelsoq.musicfy.presentation.components.PlaylistBottomSheet
@@ -329,18 +331,30 @@ fun SearchScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top bar: settings only (search field is docked at the bottom)
+            // Top bar: page title (Library style) + settings
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 20.dp, top = statusBarTopInset + 8.dp, end = 20.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Text(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 4.dp),
+                    text = "Search",
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 40.sp,
+                    letterSpacing = 1.sp,
+                    maxLines = 1
+                )
                 FilledIconButton(
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ),
                     onClick = { navController.navigateSafely(Screen.Settings.route) }
                 ) {
@@ -626,10 +640,22 @@ fun SearchScreen(
                 .background(brush = bottomGradientBrush)
         )
 
-        // Bottom search bar — slides up above nav / mini-player when Search opens
+        // Bottom search bar — slides up above nav / mini-player when Search opens;
+        // rides the IME when the keyboard is visible.
         val hasVisibleMiniPlayer = stablePlayerState.currentSong != null
-        val searchBarBottomPadding =
+        val density = LocalDensity.current
+        val imeBottom = with(density) {
+            WindowInsets.ime.getBottom(this).toDp()
+        }
+        val restingSearchBarBottom =
             if (hasVisibleMiniPlayer) MiniPlayerHeight + 10.dp else bottomBarHeightDp + 10.dp
+        val targetSearchBarBottom =
+            if (imeBottom > 8.dp) imeBottom + 8.dp else restingSearchBarBottom
+        val searchBarBottomPadding by animateDpAsState(
+            targetValue = targetSearchBarBottom,
+            animationSpec = tween(durationMillis = 160),
+            label = "searchBarImePadding"
+        )
 
         var searchBarEntered by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) {
@@ -672,11 +698,11 @@ fun SearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .heightIn(min = 56.dp),
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                tonalElevation = 3.dp,
-                shadowElevation = 6.dp
+                    .heightIn(min = 58.dp),
+                shape = RoundedCornerShape(30.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                tonalElevation = 2.dp,
+                shadowElevation = 8.dp
             ) {
                 DockedSearchBar(
                     inputField = {
