@@ -237,6 +237,7 @@ kotlin {
 }
 
 dependencies {
+    implementation("com.github.Dimezis:BlurView:version-2.0.6")
     // Core & Optimization
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.androidx.profileinstaller)
