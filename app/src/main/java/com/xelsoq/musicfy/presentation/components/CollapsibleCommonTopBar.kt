@@ -24,17 +24,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.viewinterop.AndroidView
 import android.graphics.Color as AndroidColor
 import android.view.ViewGroup
 import eightbitlab.com.blurview.BlurView
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.draw.drawWithContent
 import com.xelsoq.musicfy.ui.theme.MusicfyStatusBarStyle
 import androidx.compose.ui.res.stringResource
 import com.xelsoq.musicfy.R
+
 
 @Composable
 private fun TopBarBackdropBlur(
@@ -67,9 +68,19 @@ private fun TopBarBackdropBlur(
             factory = { context ->
                 BlurView(context).apply {
                     setBackgroundColor(AndroidColor.TRANSPARENT)
-                    setupWith(rootView)
-                        .setBlurRadius(blurRadius)
-                        .setBlurAutoUpdate(true)
+
+                    // Android may invoke AndroidView creation/measurement from inside
+                    // Compose's own measure/layout pass. BlurView snapshots its target
+                    // hierarchy when it is configured, so doing that synchronously here
+                    // can trigger: "performMeasureAndLayout called during measure layout".
+                    // Defer setup until the current layout pass has completely finished.
+                    post {
+                        if (!isAttachedToWindow) return@post
+
+                        setupWith(rootView)
+                            .setBlurRadius(blurRadius)
+                            .setBlurAutoUpdate(true)
+                    }
                 }
             }
         )
@@ -112,9 +123,7 @@ fun CollapsibleCommonTopBar(
     // Actually GenreDetailScreen uses: (collapseFraction * 2f).coerceIn(0f, 1f)
     val solidAlpha = (collapseFraction * 2f).coerceIn(0f, 1f)
     
-    val backgroundColor = containerColor ?: MaterialTheme.colorScheme.surfaceContainerHigh.copy(
-        alpha = solidAlpha * 0.45f
-    )
+    val backgroundColor = containerColor ?: MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = solidAlpha * 0.45f)
     val statusBarFallbackColor = backgroundColor.compositeOver(MaterialTheme.colorScheme.surface)
 
     if (syncStatusBarWithContainer) {
