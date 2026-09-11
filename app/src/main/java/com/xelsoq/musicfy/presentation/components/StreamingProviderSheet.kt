@@ -3,13 +3,29 @@ package com.xelsoq.musicfy.presentation.components
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material3.*
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,36 +35,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import com.xelsoq.musicfy.R
-import com.xelsoq.musicfy.presentation.jellyfin.auth.JellyfinLoginActivity
-import com.xelsoq.musicfy.presentation.navidrome.auth.NavidromeLoginActivity
-import com.xelsoq.musicfy.presentation.netease.auth.NeteaseLoginActivity
-import com.xelsoq.musicfy.presentation.qqmusic.auth.QqMusicLoginActivity
 import com.xelsoq.musicfy.presentation.telegram.auth.TelegramLoginActivity
 import com.xelsoq.musicfy.ui.theme.GoogleSansRounded
 
 /**
- * Bottom sheet that lets the user choose between streaming providers.
- * Uses a segmented Material 3 Expressive list that matches the other
- * bottom sheets in the app while keeping provider order and icon colors intact.
+ * Bottom sheet for streaming providers.
+ * Only YouTube Music and Telegram are offered; other cloud providers were removed.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StreamingProviderSheet(
     onDismissRequest: () -> Unit,
-    isNeteaseLoggedIn: Boolean = false,
-    onNavigateToNeteaseDashboard: () -> Unit = {},
-    isQqMusicLoggedIn: Boolean = false,
-    onNavigateToQqMusicDashboard: () -> Unit = {},
-    isNavidromeLoggedIn: Boolean = false,
-    onNavigateToNavidromeDashboard: () -> Unit = {},
-    isJellyfinLoggedIn: Boolean = false,
-    onNavigateToJellyfinDashboard: () -> Unit = {},
+    isYoutubeLoggedIn: Boolean = false,
+    onNavigateToYoutubeAuth: () -> Unit = {},
     sheetState: SheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
@@ -105,91 +110,32 @@ fun StreamingProviderSheet(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     ProviderRow(
+                        iconPainter = painterResource(R.drawable.ic_youtube),
+                        iconTint = Color(0xFFFF0000),
+                        title = "YouTube Music",
+                        subtitle = if (isYoutubeLoggedIn) {
+                            "Connected · Library & streaming"
+                        } else {
+                            "Sign in to stream & sync library"
+                        },
+                        shape = providerSegmentItemShape,
+                        isConnected = isYoutubeLoggedIn,
+                        onClick = {
+                            onNavigateToYoutubeAuth()
+                            onDismissRequest()
+                        }
+                    )
+
+                    ProviderRow(
                         iconPainter = painterResource(R.drawable.telegram),
                         iconTint = Color(0xFF2AABEE),
                         title = "Telegram",
                         subtitle = "Stream from channels & chats",
                         shape = providerSegmentItemShape,
                         onClick = {
-                            context.startActivity(Intent(context, TelegramLoginActivity::class.java))
-                            onDismissRequest()
-                        }
-                    )
-
-                    ProviderRow(
-                        iconPainter = painterResource(R.drawable.rounded_drive_export_24),
-                        iconTint = Color(0xFF4285F4),
-                        title = "Google Drive",
-                        subtitle = "Coming soon",
-                        shape = providerSegmentItemShape,
-                        enabled = false,
-                        onClick = { }
-                    )
-
-                    ProviderRow(
-                        iconPainter = painterResource(R.drawable.ic_navidrome_md3),
-                        iconTint = Color(0xFFE8A54B),
-                        title = "Subsonic",
-                        subtitle = if (isNavidromeLoggedIn) "Connected · Navidrome/Airsonic" else "Connect Navidrome & others",
-                        shape = providerSegmentItemShape,
-                        isConnected = isNavidromeLoggedIn,
-                        onClick = {
-                            if (isNavidromeLoggedIn) {
-                                onNavigateToNavidromeDashboard()
-                            } else {
-                                context.startActivity(Intent(context, NavidromeLoginActivity::class.java))
-                            }
-                            onDismissRequest()
-                        }
-                    )
-
-                    ProviderRow(
-                        iconPainter = painterResource(R.drawable.ic_jellyfin),
-                        iconTint = Color(0xFF00A4DC),
-                        title = "Jellyfin",
-                        subtitle = if (isJellyfinLoggedIn) "Connected" else "Connect your Jellyfin server",
-                        shape = providerSegmentItemShape,
-                        isConnected = isJellyfinLoggedIn,
-                        onClick = {
-                            if (isJellyfinLoggedIn) {
-                                onNavigateToJellyfinDashboard()
-                            } else {
-                                context.startActivity(Intent(context, JellyfinLoginActivity::class.java))
-                            }
-                            onDismissRequest()
-                        }
-                    )
-
-                    ProviderRow(
-                        iconPainter = painterResource(R.drawable.netease_cloud_music_logo_icon_206716__1_),
-                        iconTint = Color(0xFFE85959),
-                        title = "Netease Music",
-                        subtitle = if (isNeteaseLoggedIn) "Connected" else "Sign in to stream",
-                        shape = providerSegmentItemShape,
-                        isConnected = isNeteaseLoggedIn,
-                        onClick = {
-                            if (isNeteaseLoggedIn) {
-                                onNavigateToNeteaseDashboard()
-                            } else {
-                                context.startActivity(Intent(context, NeteaseLoginActivity::class.java))
-                            }
-                            onDismissRequest()
-                        }
-                    )
-
-                    ProviderRow(
-                        iconPainter = painterResource(R.drawable.qq_music),
-                        iconTint = Color(0xFF31C27C),
-                        title = "QQ Music",
-                        subtitle = if (isQqMusicLoggedIn) "Connected" else "Sign in to stream",
-                        shape = providerSegmentItemShape,
-                        isConnected = isQqMusicLoggedIn,
-                        onClick = {
-                            if (isQqMusicLoggedIn) {
-                                onNavigateToQqMusicDashboard()
-                            } else {
-                                context.startActivity(Intent(context, QqMusicLoginActivity::class.java))
-                            }
+                            context.startActivity(
+                                Intent(context, TelegramLoginActivity::class.java)
+                            )
                             onDismissRequest()
                         }
                     )
@@ -206,33 +152,22 @@ private fun ProviderRow(
     title: String,
     subtitle: String,
     shape: RoundedCornerShape,
-    isConnected: Boolean = false,
     enabled: Boolean = true,
+    isConnected: Boolean = false,
     onClick: () -> Unit
 ) {
     val containerColor = when {
-        !enabled -> MaterialTheme.colorScheme.surfaceContainerLowest
-        isConnected -> MaterialTheme.colorScheme.surfaceContainerHighest
+        isConnected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+        else -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.65f)
+    }
+    val titleColor = MaterialTheme.colorScheme.onSurface
+    val subtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val arrowContainerColor = when {
+        isConnected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
         else -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
-    val titleColor = if (enabled) {
-        MaterialTheme.colorScheme.onSurface
-    } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f)
-    }
-    val subtitleColor = when {
-        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f)
-        isConnected -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val arrowContainerColor = when {
-        !enabled -> MaterialTheme.colorScheme.surfaceContainerHighest
-        isConnected -> MaterialTheme.colorScheme.primaryContainer
-        else -> MaterialTheme.colorScheme.surfaceBright
-    }
     val arrowTint = when {
-        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
-        isConnected -> MaterialTheme.colorScheme.onPrimaryContainer
+        isConnected -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
     }
     val iconTileShape = RoundedCornerShape(14.dp)

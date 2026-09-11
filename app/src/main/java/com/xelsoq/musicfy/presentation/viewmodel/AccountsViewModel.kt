@@ -262,9 +262,12 @@ class AccountsViewModel @Inject constructor(
             if (!youtubeConnected) add(ExternalServiceAccount.YOUTUBE)
         }
 
+        // Only expose Telegram + YouTube Music in the UI.
+        // QQ / Netease / Jellyfin / Navidrome (Subsonic) / Google Drive are removed from connections.
+        val allowed = setOf(ExternalServiceAccount.TELEGRAM, ExternalServiceAccount.YOUTUBE)
         AccountsUiState(
-            connectedAccounts = connectedAccounts,
-            disconnectedServices = disconnectedServices
+            connectedAccounts = connectedAccounts.filter { it.service in allowed },
+            disconnectedServices = disconnectedServices.filter { it in allowed }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountsUiState())
 

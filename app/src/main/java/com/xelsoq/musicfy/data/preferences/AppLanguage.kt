@@ -4,19 +4,12 @@ import android.content.Context
 import androidx.annotation.StringRes
 import com.xelsoq.musicfy.R
 
+/**
+ * App languages. Only English is kept for now (Portuguese will be added later).
+ */
 enum class AppLanguage(val tag: String, @StringRes val labelRes: Int) {
     SYSTEM("", R.string.settings_language_system),
-    ENGLISH("en", R.string.settings_language_english),
-    GERMAN("de", R.string.settings_language_german),
-    SPANISH("es", R.string.settings_language_spanish),
-    FRENCH("fr", R.string.settings_language_french),
-    INDONESIAN("in", R.string.settings_language_indonesian),
-    ITALIAN("it", R.string.settings_language_italian),
-    KOREAN("ko", R.string.settings_language_korean),
-    NORWEGIAN_BOKMAL("nb", R.string.settings_language_norwegian_bokmal),
-    RUSSIAN("ru", R.string.settings_language_russian),
-    SIMPLIFIED_CHINESE("zh-CN", R.string.settings_language_chinese),
-    TURKISH("tr", R.string.settings_language_turkish);
+    ENGLISH("en", R.string.settings_language_english);
 
     companion object {
         val supportedLanguageTags: Set<String> = values().map { it.tag }.toSet()
