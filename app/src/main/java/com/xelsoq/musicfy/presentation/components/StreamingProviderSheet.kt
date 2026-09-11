@@ -2,30 +2,15 @@ package com.xelsoq.musicfy.presentation.components
 
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetState
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,24 +20,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import com.xelsoq.musicfy.R
 import com.xelsoq.musicfy.presentation.telegram.auth.TelegramLoginActivity
 import com.xelsoq.musicfy.ui.theme.GoogleSansRounded
 
 /**
- * Bottom sheet for streaming providers.
- * Only YouTube Music and Telegram are offered; other cloud providers were removed.
+ * Bottom sheet that lets the user choose between streaming providers.
+ * Uses a segmented Material 3 Expressive list that matches the other
+ * bottom sheets in the app while keeping provider order and icon colors intact.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StreamingProviderSheet(
     onDismissRequest: () -> Unit,
-    isYoutubeLoggedIn: Boolean = false,
     onNavigateToYoutubeAuth: () -> Unit = {},
     sheetState: SheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -77,7 +62,7 @@ fun StreamingProviderSheet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = stringResource(R.string.topbar_cloud_streaming_title),
+                text = stringResource(R.string.presentation_batch_g_streaming_title),
                 style = MaterialTheme.typography.headlineSmall,
                 fontFamily = GoogleSansRounded,
                 fontWeight = FontWeight.Bold,
@@ -87,7 +72,7 @@ fun StreamingProviderSheet(
             Spacer(Modifier.height(6.dp))
 
             Text(
-                text = stringResource(R.string.topbar_cloud_streaming_subtitle),
+                text = stringResource(R.string.presentation_batch_g_streaming_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 fontFamily = GoogleSansRounded,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -113,13 +98,8 @@ fun StreamingProviderSheet(
                         iconPainter = painterResource(R.drawable.ic_youtube),
                         iconTint = Color(0xFFFF0000),
                         title = "YouTube Music",
-                        subtitle = if (isYoutubeLoggedIn) {
-                            "Connected · Library & streaming"
-                        } else {
-                            "Sign in to stream & sync library"
-                        },
+                        subtitle = "Stream and import playlists",
                         shape = providerSegmentItemShape,
-                        isConnected = isYoutubeLoggedIn,
                         onClick = {
                             onNavigateToYoutubeAuth()
                             onDismissRequest()
@@ -133,13 +113,12 @@ fun StreamingProviderSheet(
                         subtitle = "Stream from channels & chats",
                         shape = providerSegmentItemShape,
                         onClick = {
-                            context.startActivity(
-                                Intent(context, TelegramLoginActivity::class.java)
-                            )
+                            context.startActivity(Intent(context, TelegramLoginActivity::class.java))
                             onDismissRequest()
                         }
                     )
-                }
+
+                                    }
             }
         }
     }
@@ -152,22 +131,33 @@ private fun ProviderRow(
     title: String,
     subtitle: String,
     shape: RoundedCornerShape,
-    enabled: Boolean = true,
     isConnected: Boolean = false,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     val containerColor = when {
-        isConnected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
-        else -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.65f)
-    }
-    val titleColor = MaterialTheme.colorScheme.onSurface
-    val subtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val arrowContainerColor = when {
-        isConnected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        !enabled -> MaterialTheme.colorScheme.surfaceContainerLowest
+        isConnected -> MaterialTheme.colorScheme.surfaceContainerHighest
         else -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
-    val arrowTint = when {
+    val titleColor = if (enabled) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f)
+    }
+    val subtitleColor = when {
+        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f)
         isConnected -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val arrowContainerColor = when {
+        !enabled -> MaterialTheme.colorScheme.surfaceContainerHighest
+        isConnected -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surfaceBright
+    }
+    val arrowTint = when {
+        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+        isConnected -> MaterialTheme.colorScheme.onPrimaryContainer
         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
     }
     val iconTileShape = RoundedCornerShape(14.dp)
@@ -212,12 +202,20 @@ private fun ProviderRow(
                         .background(iconTint.copy(alpha = if (enabled) 0.14f else 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        painter = iconPainter,
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                        tint = iconTint
-                    )
+                    if (title == "YouTube Music") {
+                        Image(
+                            painter = iconPainter,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    } else {
+                        Icon(
+                            painter = iconPainter,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = iconTint
+                        )
+                    }
                 }
             },
             trailingContent = {

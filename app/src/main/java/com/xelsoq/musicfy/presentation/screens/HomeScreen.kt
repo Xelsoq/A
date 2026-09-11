@@ -660,7 +660,6 @@ fun HomeScreen(
     if (showStreamingProviderSheet) {
                         StreamingProviderSheet(
             onDismissRequest = { showStreamingProviderSheet = false },
-            isYoutubeLoggedIn = false, // TODO: wire DatastoreRepository cookies if needed
             onNavigateToYoutubeAuth = {
                 navController.navigateSafely(Screen.YoutubeAuth.route)
             }
