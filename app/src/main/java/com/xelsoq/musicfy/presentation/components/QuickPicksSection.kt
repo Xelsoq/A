@@ -162,12 +162,16 @@ private fun QuickPicksHeroCarousel(
             maxWidth >= 600.dp -> 356.dp
             else -> 332.dp
         }
-        val heroMaxWidth = (maxWidth - 48.dp)
-            .coerceAtLeast(232.dp)
-            .coerceAtMost(440.dp)
+        // How much of the neighbouring cards peeks in at rest — this is what
+        // makes the squeeze/parallax visible; too little peek (or a focused
+        // card that nearly fills the viewport) reads as "just one flat card".
+        val peekPadding = 40.dp
+        val pagerSpacing = 14.dp
+        val heroMaxWidth = (maxWidth - peekPadding * 2)
+            .coerceAtLeast(220.dp)
+            .coerceAtMost(420.dp)
+        val sidePadding = peekPadding
 
-        // Center the focused page; side pages peek with the same rounded shape
-        val sidePadding = ((maxWidth - heroMaxWidth) / 2).coerceAtLeast(16.dp)
         val pagerState = rememberPagerState(pageCount = { songs.size })
         val density = LocalDensity.current
         val requestWidthPx = with(density) { heroMaxWidth.roundToPx().coerceAtLeast(1) }
@@ -178,7 +182,7 @@ private fun QuickPicksHeroCarousel(
         HorizontalPager(
             state = pagerState,
             contentPadding = PaddingValues(horizontal = sidePadding),
-            pageSpacing = 10.dp,
+            pageSpacing = pagerSpacing,
             pageSize = PageSize.Fixed(heroMaxWidth),
             modifier = Modifier
                 .fillMaxWidth()
@@ -197,7 +201,7 @@ private fun QuickPicksHeroCarousel(
             val pageOffset = (
                 (pagerState.currentPage - index) + pagerState.currentPageOffsetFraction
             ).absoluteValue.coerceIn(0f, 1f)
-            val scale = lerp(1f, 0.9f, pageOffset)
+            val scale = lerp(1f, 0.86f, pageOffset)
 
             Surface(
                 shape = heroShape,
@@ -209,7 +213,7 @@ private fun QuickPicksHeroCarousel(
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
-                        alpha = lerp(1f, 0.72f, pageOffset)
+                        alpha = lerp(1f, 0.6f, pageOffset)
                     }
                     .focusable()
                     .combinedClickable(
