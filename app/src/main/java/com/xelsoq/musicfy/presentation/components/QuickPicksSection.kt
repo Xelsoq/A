@@ -25,19 +25,19 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PageSize
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.carousel.HorizontalCenteredHeroCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -45,33 +45,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.lerp
 import coil.size.Size
 import com.xelsoq.musicfy.data.model.Song
 import com.xelsoq.musicfy.data.preferences.QuickPicksDisplayMode
 import com.xelsoq.musicfy.presentation.components.snapping.LazyGridSnapLayoutInfoProvider
-import kotlin.math.absoluteValue
 
 /** Matches ArchiveTune `ListItemHeight`. */
 private val ListItemHeight = 64.dp
 private const val QuickPicksLimit = 48
 
 /**
- * Quick Picks:
- * - CARD: HorizontalPager where every page — focused or peeking — keeps its
- *   own full [MaterialTheme.shapes.extraLarge] rounding on all four corners;
- *   only scale/alpha change as a page moves off-center. The real Material3
- *   `HorizontalCenteredHeroCarousel` (what ArchiveTune uses) instead *masks*
- *   a bigger card, so its peeking side always shows one flat, unrounded cut
- *   edge by design — that's the "square" look. This keeps ArchiveTune's
- *   sizing/gradient/typography 1:1 but swaps the mechanism so corners always
- *   stay rounded.
+ * Quick Picks — ported 1:1 from ArchiveTune's Home screen:
+ * - CARD: the real Material3 `HorizontalCenteredHeroCarousel` (the exact
+ *   component ArchiveTune uses, same `maxItemWidth`/`itemSpacing`/
+ *   `contentPadding` values) with `maskClip`/`maskBorder`. This lays items
+ *   out large and masks/clips them as they scroll to "shrink" into peeking
+ *   side items — that mask *is* the parallax squeeze. One inherent trait
+ *   (present in ArchiveTune too, since it's the same widget): a peeking
+ *   card's inward edge is a flat mask cut, only the outward edge is fully
+ *   rounded — that's this component's design, not a bug in this port.
  * - LIST: 4-row LazyHorizontalGrid (unchanged, already matched ArchiveTune)
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -147,7 +144,11 @@ fun QuickPicksSection(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalMaterial3ExpressiveApi::class,
+    ExperimentalFoundationApi::class,
+)
 @Composable
 private fun QuickPicksHeroCarousel(
     songs: List<Song>,
@@ -162,28 +163,28 @@ private fun QuickPicksHeroCarousel(
             maxWidth >= 600.dp -> 356.dp
             else -> 332.dp
         }
-        // How much of the neighbouring cards peeks in at rest — this is what
-        // makes the squeeze/parallax visible; too little peek (or a focused
-        // card that nearly fills the viewport) reads as "just one flat card".
-        val peekPadding = 40.dp
-        val pagerSpacing = 14.dp
-        val heroMaxWidth = (maxWidth - peekPadding * 2)
-            .coerceAtLeast(220.dp)
-            .coerceAtMost(420.dp)
-        val sidePadding = peekPadding
-
-        val pagerState = rememberPagerState(pageCount = { songs.size })
+        // Same formula ArchiveTune uses for its hero carousel's maxItemWidth.
+        val heroMaxWidth = (maxWidth - 48.dp)
+            .coerceAtLeast(232.dp)
+            .coerceAtMost(440.dp)
         val density = LocalDensity.current
         val requestWidthPx = with(density) { heroMaxWidth.roundToPx().coerceAtLeast(1) }
         val requestHeightPx = with(density) { heroHeight.roundToPx().coerceAtLeast(1) }
         val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
-        val heroShape = MaterialTheme.shapes.extraLarge
 
-        HorizontalPager(
-            state = pagerState,
-            contentPadding = PaddingValues(horizontal = sidePadding),
-            pageSpacing = pagerSpacing,
-            pageSize = PageSize.Fixed(heroMaxWidth),
+        // The actual Material3 carousel ArchiveTune uses. It lays every item
+        // out at the large size and masks/clips based on scroll offset to
+        // "shrink" it into a peeking small item — that reveal-mask IS the
+        // parallax squeeze. One side effect (present in ArchiveTune too,
+        // since it's the same widget): the edge of a peeking card facing the
+        // focused item is a flat mask cut, not a rounded corner — only the
+        // outward-facing edge is fully rounded. That's inherent to this
+        // exact component, not a bug in this port.
+        HorizontalCenteredHeroCarousel(
+            state = rememberCarouselState { songs.size },
+            maxItemWidth = heroMaxWidth,
+            itemSpacing = 10.dp,
+            contentPadding = PaddingValues(horizontal = 16.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(heroHeight)
@@ -194,97 +195,82 @@ private fun QuickPicksHeroCarousel(
                 Size(requestWidthPx, requestHeightPx)
             }
 
-            // Every page is its own fully rounded rect — focused or peeking —
-            // scale/alpha are the only things that change as it slides
-            // off-center, so a peeking card never shows a flat, unrounded
-            // "sliced" edge.
-            val pageOffset = (
-                (pagerState.currentPage - index) + pagerState.currentPageOffsetFraction
-            ).absoluteValue.coerceIn(0f, 1f)
-            val scale = lerp(1f, 0.86f, pageOffset)
-
-            Surface(
-                shape = heroShape,
-                border = BorderStroke(1.dp, borderColor),
-                color = Color.Transparent,
-                shadowElevation = 0.dp,
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        alpha = lerp(1f, 0.6f, pageOffset)
-                    }
+                    .maskClip(MaterialTheme.shapes.extraLarge)
+                    .maskBorder(
+                        BorderStroke(1.dp, borderColor),
+                        MaterialTheme.shapes.extraLarge
+                    )
                     .focusable()
                     .combinedClickable(
                         onClick = { onSongClick(song) },
                         onLongClick = { onSongLongClick?.invoke(song) }
                     )
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    SmartImage(
-                        model = song.albumArtUriString,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        shape = RectangleShape,
-                        targetSize = imageTargetSize,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                SmartImage(
+                    model = song.albumArtUriString,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    shape = RectangleShape,
+                    targetSize = imageTargetSize,
+                    modifier = Modifier.fillMaxSize()
+                )
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    0f to Color.Transparent,
-                                    0.48f to Color.Black.copy(alpha = 0.08f),
-                                    1f to Color.Black.copy(alpha = 0.84f)
-                                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                0.48f to Color.Black.copy(alpha = 0.08f),
+                                1f to Color.Black.copy(alpha = 0.84f)
                             )
-                    )
+                        )
+                )
 
-                    if (isActive && isPlaying) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            shape = CircleShape,
-                            tonalElevation = 2.dp,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(14.dp)
-                                .size(36.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Rounded.GraphicEq,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            }
+                if (isActive && isPlaying) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = CircleShape,
+                        tonalElevation = 2.dp,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(14.dp)
+                            .size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.GraphicEq,
+                                contentDescription = null,
+                                modifier = Modifier.size(19.dp)
+                            )
                         }
                     }
+                }
 
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(20.dp)
-                    ) {
-                        Text(
-                            text = song.title,
-                            style = MaterialTheme.typography.titleLargeEmphasized,
-                            color = Color.White,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = song.artist,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White.copy(alpha = 0.78f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(20.dp)
+                ) {
+                    Text(
+                        text = song.title,
+                        style = MaterialTheme.typography.titleLargeEmphasized,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = song.artist,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.78f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
