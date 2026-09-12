@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.xelsoq.musicfy.ui.theme.LocalMusicfyDarkTheme
+import com.xelsoq.musicfy.ui.theme.LocalShowScrollbar
 import com.xelsoq.musicfy.ui.theme.GoogleSansRounded
 import com.xelsoq.musicfy.ui.theme.MusicfyStatusBarStyle
 import androidx.compose.ui.unit.lerp
@@ -295,6 +296,7 @@ fun ArtistDetailScreen(
                             .forEach { staleKey -> expandedSections.remove(staleKey) }
                     }
 
+                    CompositionLocalProvider(LocalShowScrollbar provides false) {
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier
@@ -306,8 +308,8 @@ fun ArtistDetailScreen(
                             },
                         contentPadding = PaddingValues(
                             top = minTopBarHeight + 8.dp,
-                            start = 16.dp,
-                            end = 16.dp,
+                            start = 0.dp,
+                            end = 0.dp,
                             bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 24.dp
                         )
                     ) {
@@ -317,7 +319,7 @@ fun ArtistDetailScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(bottom = 8.dp),
+                                        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
@@ -370,6 +372,7 @@ fun ArtistDetailScreen(
                                 contentType = { _, _ -> "popular_song_item" }
                             ) { idx, song ->
                                 ArtistPopularSongItem(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
                                     song = song,
                                     rank = idx + 1,
                                     isCurrentSong = stablePlayerState.currentSong?.id == song.id,
@@ -564,6 +567,7 @@ fun ArtistDetailScreen(
                             }
                         }
                     }
+                    } // CompositionLocalProvider — hide scrollbar on artist page
 
                     if (UseSharedCollapsibleTopBarProbe) {
                         SharedArtistTopBarProbe(
@@ -573,7 +577,6 @@ fun ArtistDetailScreen(
                             collapseFraction = collapseFraction,
                             headerHeight = currentTopBarHeightDp,
                             headerImageRequestSize = headerImageRequestSize,
-                            hasCustomImage = !artist.customImageUri.isNullOrBlank(),
                             isSubscribed = isSubscribed,
                             onSubscribeClick = { viewModel.toggleSubscription() },
                             onBackPressed = { navController.popBackStack() },
@@ -585,14 +588,11 @@ fun ArtistDetailScreen(
                                     )
                                 }
                             },
-                            onChangeImage = { imagePickerLauncher.launch("image/*") },
-                            onClearCustomImage = { viewModel.clearCustomImage() }
                         )
                     } else {
                         CustomCollapsingTopBar(
                             artist = artist,
                             effectiveImageUrl = uiState.effectiveImageUrl,
-                            hasCustomImage = !artist.customImageUri.isNullOrBlank(),
                             isSubscribed = isSubscribed,
                             onSubscribeClick = { viewModel.toggleSubscription() },
                             songsCount = if (uiState.isOnlineArtist) artist.songCount else songs.size,
@@ -608,8 +608,6 @@ fun ArtistDetailScreen(
                                     )
                                 }
                             },
-                            onChangeImage = { imagePickerLauncher.launch("image/*") },
-                            onClearCustomImage = { viewModel.clearCustomImage() }
                         )
                     }
                 }
@@ -754,7 +752,7 @@ private fun ArtistSectionHeaderWithSeeAll(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -929,7 +927,7 @@ private fun ArtistLatestReleaseCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 12.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Card(
@@ -944,15 +942,15 @@ private fun ArtistLatestReleaseCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 SmartImage(
                     model = release.albumArtUriString,
                     contentDescription = release.title,
                     modifier = Modifier
-                        .size(112.dp)
+                        .size(120.dp)
                         .clip(RoundedCornerShape(12.dp)),
                 )
                 Column(
@@ -999,7 +997,7 @@ private fun ArtistAlbumCard(
         ),
         shape = AbsoluteSmoothCornerShape(16.dp, 60),
         modifier = modifier
-            .width(156.dp)
+            .width(168.dp)
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -1145,6 +1143,7 @@ private fun ArtistAlbumSectionSongItem(
     onMoreOptionsClick: () -> Unit
 ) {
     val isLastSong = songIndex == songCount - 1
+    val sectionSongModifier = modifier.padding(horizontal = 16.dp)
 
     val songItemShape = when {
         songCount == 1 -> RoundedCornerShape(16.dp)
@@ -1175,7 +1174,7 @@ private fun ArtistAlbumSectionSongItem(
     }
 
     Box(
-        modifier = modifier
+        modifier = sectionSongModifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f), containerShape)
             .padding(horizontal = 8.dp)
@@ -1211,15 +1210,11 @@ private fun SharedArtistTopBarProbe(
     collapseFraction: Float,
     headerHeight: Dp,
     headerImageRequestSize: Size,
-    hasCustomImage: Boolean,
     isSubscribed: Boolean,
     onSubscribeClick: () -> Unit,
     onBackPressed: () -> Unit,
-    onPlayClick: () -> Unit,
-    onChangeImage: () -> Unit,
-    onClearCustomImage: () -> Unit
+    onPlayClick: () -> Unit
 ) {
-    var showImageMenu by remember { mutableStateOf(false) }
     val surfaceColor = MaterialTheme.colorScheme.surface
     val statusBarColor =
         if (LocalMusicfyDarkTheme.current) Color.Black.copy(alpha = 0.6f)
@@ -1340,47 +1335,6 @@ private fun SharedArtistTopBarProbe(
                         )
                     }
 
-                    Box {
-                        FilledIconButton(
-                            onClick = { showImageMenu = true },
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Edit,
-                                contentDescription = stringResource(R.string.artist_action_change_photo)
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = showImageMenu,
-                            onDismissRequest = { showImageMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.artist_action_change_photo)) },
-                                leadingIcon = {
-                                    Icon(Icons.Rounded.AddAPhoto, contentDescription = null)
-                                },
-                                onClick = {
-                                    showImageMenu = false
-                                    onChangeImage()
-                                }
-                            )
-                            if (hasCustomImage) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.artist_action_reset_to_default)) },
-                                    leadingIcon = {
-                                        Icon(Icons.Rounded.Delete, contentDescription = null)
-                                    },
-                                    onClick = {
-                                        showImageMenu = false
-                                        onClearCustomImage()
-                                    }
-                                )
-                            }
-                        }
-                    }
                 }
             }
         )
@@ -1408,7 +1362,6 @@ private fun SharedArtistTopBarProbe(
 private fun CustomCollapsingTopBar(
     artist: Artist,
     effectiveImageUrl: String?,
-    hasCustomImage: Boolean,
     isSubscribed: Boolean,
     onSubscribeClick: () -> Unit,
     songsCount: Int,
@@ -1416,9 +1369,7 @@ private fun CustomCollapsingTopBar(
     headerHeight: Dp,
     headerImageRequestSize: Size,
     onBackPressed: () -> Unit,
-    onPlayClick: () -> Unit,
-    onChangeImage: () -> Unit,
-    onClearCustomImage: () -> Unit
+    onPlayClick: () -> Unit
 ) {
     val surfaceColor = MaterialTheme.colorScheme.surface
     val statusBarColor = if (LocalMusicfyDarkTheme.current) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.4f)
@@ -1528,7 +1479,6 @@ private fun CustomCollapsingTopBar(
 
                 // Subscribe & Image edit buttons (visible only when header is mostly expanded)
                 if (collapseFraction < 0.5f) {
-                    var showImageMenu by remember { mutableStateOf(false) }
                     Row(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -1553,38 +1503,6 @@ private fun CustomCollapsingTopBar(
                             )
                         }
 
-                        Box {
-                            SmallFloatingActionButton(
-                                onClick = { showImageMenu = true },
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            ) {
-                                Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.artist_action_change_photo))
-                            }
-                            DropdownMenu(
-                                expanded = showImageMenu,
-                                onDismissRequest = { showImageMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.artist_action_change_photo)) },
-                                    leadingIcon = { Icon(Icons.Rounded.AddAPhoto, contentDescription = null) },
-                                    onClick = {
-                                        showImageMenu = false
-                                        onChangeImage()
-                                    }
-                                )
-                                if (hasCustomImage) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.artist_action_reset_to_default)) },
-                                        leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
-                                        onClick = {
-                                            showImageMenu = false
-                                            onClearCustomImage()
-                                        }
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
 
