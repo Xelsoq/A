@@ -17,8 +17,8 @@ import com.xelsoq.musicfy.data.model.SyncedLine
 import com.xelsoq.musicfy.data.model.LyricsSourcePreference
 import com.xelsoq.musicfy.data.model.Song
 import com.xelsoq.musicfy.data.network.lyrics.LrcLibApiService
-import com.xelsoq.musicfy.data.network.lyrics.LrcLibResponse
 import com.xelsoq.musicfy.data.preferences.UserPreferencesRepository
+import com.xelsoq.musicfy.data.network.lyrics.LrcLibResponse
 import com.xelsoq.musicfy.utils.LyricsImportSecurity
 import com.xelsoq.musicfy.utils.LyricsImportValidationResult
 import com.xelsoq.musicfy.utils.LogUtils
@@ -46,10 +46,8 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONObject
 
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.async
@@ -135,9 +133,7 @@ class LyricsRepositoryImpl @Inject constructor(
         private const val LRCLIB_MIN_DELAY = 100L
         private const val MAX_CALLS_PER_MINUTE = 30
         private const val AMLLDB_NCM_LYRICS_BASE_URL = "https://amlldb.bikonoo.com/lyrics/ncm-lyrics/"
-        /** Same public API used by ArchiveTune BetterLyrics provider. */
-        private const val BETTER_LYRICS_API_BASE = "https://lyrics-api.boidu.dev/"
-        private val BETTER_LYRICS_ENDPOINTS = listOf("getLyrics", "kugou/getLyrics", "qq/getLyrics")
+        private const val BETTER_LYRICS_BASE_URL = "https://lyrics-api.boidu.dev/getLyrics"
         private const val NETWORK_RETRY_ATTEMPTS = 3
         private const val NETWORK_RETRY_INITIAL_DELAY_MS = 500L
 
@@ -483,19 +479,15 @@ class LyricsRepositoryImpl @Inject constructor(
             Log.d(TAG, "AMLLDB unavailable for Netease song, falling back to cache/LRCLIB")
         }
 
-        // BetterLyrics (ArchiveTune) — word-by-word / TTML when enabled in settings
+        // Prefer BetterLyrics TTML (word-by-word) when the user enables it in settings.
         val betterLyricsEnabled = runCatching {
-            userPreferencesRepository.enableBetterLyricsFlow.first()
-        }.getOrDefault(true)
+            userPreferencesRepository.enableBetterLyricsWordByWordFlow.first()
+        }.getOrDefault(false)
         if (betterLyricsEnabled) {
-            val betterLyrics = fetchFromBetterLyrics(song)
-            if (betterLyrics != null) {
-                val hasWords = betterLyrics.synced?.any { !it.words.isNullOrEmpty() } == true
-                Log.d(
-                    TAG,
-                    "===== LOADED LYRICS FROM BETTERLYRICS (word-by-word=$hasWords) ====="
-                )
-                return@withContext betterLyrics
+            val better = fetchFromBetterLyrics(song)
+            if (better != null) {
+                Log.d(TAG, "===== LOADED WORD-BY-WORD LYRICS FROM BETTERLYRICS =====")
+                return@withContext better
             }
             Log.d(TAG, "BetterLyrics unavailable, falling back to cache/LRCLIB")
         }
@@ -902,95 +894,110 @@ class LyricsRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Fetches lyrics from BetterLyrics public API (same endpoints as ArchiveTune).
-     * Response is typically TTML or LRC with optional word-level timing; [LyricsUtils.parseLyrics]
-     * already converts TTML via [com.xelsoq.musicfy.utils.TtmlLyricsParser].
+     * Fetches word-by-word (TTML) lyrics from BetterLyrics API (same backend ArchiveTune uses).
+     * Response is converted via [TtmlLyricsParser] / [LyricsUtils.parseLyrics] into SyncedWord timing.
      */
     private suspend fun fetchFromBetterLyrics(song: Song): Lyrics? = withContext(Dispatchers.IO) {
-        val cleanTitle = song.title.trim().replace(BRACKETED_QUALIFIER_REGEX, "").trim()
-        val cleanArtist = song.displayArtist.trim().replace(BRACKETED_QUALIFIER_REGEX, "").trim()
-        if (cleanTitle.isBlank() || cleanArtist.isBlank()) return@withContext null
+        val title = song.title.trim()
+        val artist = song.displayArtist.trim()
+        if (title.isBlank() || artist.isBlank()) return@withContext null
 
-        val album = song.album.trim().takeIf { it.isNotBlank() }
-        val durationSeconds = (song.duration / 1000).toInt().takeIf { it > 0 } ?: -1
+        val durationSeconds = (song.duration / 1000).toInt().takeIf { it > 0 }
+        val album = song.album.takeIf { it.isNotBlank() }
 
-        for (endpoint in BETTER_LYRICS_ENDPOINTS) {
-            try {
-                val urlBuilder = (BETTER_LYRICS_API_BASE + endpoint).toHttpUrl().newBuilder()
-                    .addQueryParameter("s", cleanTitle)
-                    .addQueryParameter("a", cleanArtist)
-                if (!album.isNullOrBlank()) {
-                    urlBuilder.addQueryParameter("al", album)
-                }
-                if (durationSeconds > 0) {
-                    urlBuilder.addQueryParameter("d", durationSeconds.toString())
-                }
-                val request = Request.Builder()
-                    .url(urlBuilder.build())
-                    .get()
-                    .header("Accept", "application/json, text/plain, */*")
-                    .build()
+        val urlBuilder = okhttp3.HttpUrl.Builder()
+            .scheme("https")
+            .host("lyrics-api.boidu.dev")
+            .addPathSegment("getLyrics")
+            .addQueryParameter("s", title)
+            .addQueryParameter("a", artist)
+        if (!album.isNullOrBlank()) {
+            urlBuilder.addQueryParameter("al", album)
+        }
+        if (durationSeconds != null) {
+            urlBuilder.addQueryParameter("d", durationSeconds.toString())
+        }
 
-                val bodyText = withNetworkRetry(
-                    operationName = "betterlyrics:$endpoint",
-                    shouldRetry = { throwable -> throwable is IOException }
-                ) {
-                    okHttpClient.newCall(request).execute().use { response ->
-                        when {
-                            response.isSuccessful -> response.body.string()
-                            response.code.isRetryableHttpStatusCode() ->
-                                throw IOException("BetterLyrics HTTP ${response.code} ($endpoint)")
-                            else -> ""
-                        }
+        val request = Request.Builder()
+            .url(urlBuilder.build())
+            .get()
+            .header("Accept", "application/json, text/plain, */*")
+            .build()
+
+        try {
+            val bodyText = withNetworkRetry(
+                operationName = "betterlyrics_fetch:${title.take(40)}",
+                shouldRetry = { throwable -> throwable is IOException }
+            ) {
+                okHttpClient.newCall(request).execute().use { response ->
+                    when {
+                        response.isSuccessful -> response.body?.string().orEmpty()
+                        response.code.isRetryableHttpStatusCode() ->
+                            throw IOException("BetterLyrics HTTP ${response.code}")
+                        else -> ""
                     }
                 }
-
-                val content = extractBetterLyricsContent(bodyText) ?: continue
-                val parsed = LyricsUtils.parseLyrics(content)
-                if (!parsed.isValid()) continue
-                return@withContext parsed.copy(areFromRemote = true)
-            } catch (e: Exception) {
-                Log.w(TAG, "BetterLyrics $endpoint failed: ${e.message}")
             }
+
+            if (bodyText.isBlank()) return@withContext null
+
+            val ttml = extractBetterLyricsTtml(bodyText) ?: return@withContext null
+            val parsed = LyricsUtils.parseLyrics(ttml).copy(areFromRemote = true)
+            if (!parsed.isValid()) return@withContext null
+
+            // Prefer results that actually have word-level timing when available
+            val hasWords = parsed.synced.orEmpty().any { !it.words.isNullOrEmpty() }
+            if (hasWords) {
+                Log.d(TAG, "BetterLyrics returned word-by-word lyrics (${parsed.synced?.size ?: 0} lines)")
+            } else {
+                Log.d(TAG, "BetterLyrics returned line-synced lyrics (${parsed.synced?.size ?: 0} lines)")
+            }
+            parsed
+        } catch (e: Exception) {
+            Log.w(TAG, "BetterLyrics fetch failed: ${e.message}")
+            null
         }
-        null
     }
 
     /**
-     * BetterLyrics may return raw TTML/LRC or a JSON envelope with a lyrics/content field.
+     * BetterLyrics may return raw TTML or a JSON wrapper with a TTML payload.
      */
-    private fun extractBetterLyricsContent(raw: String): String? {
-        val text = raw.removePrefix("\uFEFF").trim()
-        if (text.isBlank()) return null
-        if (text.startsWith("<") || text.startsWith("[") || text.contains("<tt", ignoreCase = true)) {
-            return text
+    private fun extractBetterLyricsTtml(raw: String): String? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return null
+
+        val ttmlRoot = Regex("""<(?:[A-Za-z_][\w.-]*:)?tt(?:\s|>)""", RegexOption.IGNORE_CASE)
+        if (ttmlRoot.containsMatchIn(trimmed.take(4096))) {
+            return trimmed
         }
+
+        // Try unwrap common JSON shapes: { "ttml": "..." }, { "lyrics": "..." }, nested data
         return runCatching {
-            var current: Any? = JSONObject(text)
-            repeat(3) {
-                when (val node = current) {
-                    is JSONObject -> {
-                        val keys = listOf(
-                            "lyrics", "content", "syncedLyrics", "plainLyrics",
-                            "ttml", "lrc", "data", "result"
-                        )
-                        for (key in keys) {
-                            if (!node.has(key) || node.isNull(key)) continue
-                            val value = node.get(key)
-                            when (value) {
-                                is String -> if (value.isNotBlank()) return@runCatching value
-                                is JSONObject -> {
-                                    current = value
-                                    return@repeat
-                                }
+            val root = com.google.gson.JsonParser.parseString(trimmed)
+            fun dig(element: com.google.gson.JsonElement?, depth: Int = 0): String? {
+                if (element == null || depth > 3) return null
+                when {
+                    element.isJsonPrimitive -> {
+                        val content = element.asString
+                        return if (ttmlRoot.containsMatchIn(content.take(4096))) content
+                        else if (depth < 2) {
+                            runCatching { dig(com.google.gson.JsonParser.parseString(content), depth + 1) }.getOrNull()
+                        } else null
+                    }
+                    element.isJsonObject -> {
+                        val obj = element.asJsonObject
+                        for (key in listOf("ttml", "lyrics", "content", "data", "result", "response")) {
+                            if (obj.has(key)) {
+                                dig(obj.get(key), depth + 1)?.let { return it }
                             }
                         }
-                        return@runCatching null
+                        // score field optional — ignore
+                        null
                     }
-                    else -> return@runCatching null
+                    else -> null
                 }
             }
-            null
+            dig(root)
         }.getOrNull()
     }
 

@@ -224,9 +224,8 @@ class UserPreferencesRepository @Inject constructor(
         // Lyrics
         val LYRICS_SYNC_OFFSETS = stringPreferencesKey("lyrics_sync_offsets_json")
         val LYRICS_SOURCE_PREFERENCE = stringPreferencesKey("lyrics_source_preference")
+        val ENABLE_BETTER_LYRICS_WORD_BY_WORD = booleanPreferencesKey("enable_better_lyrics_word_by_word")
         val AUTO_SCAN_LRC_FILES = booleanPreferencesKey("auto_scan_lrc_files")
-        /** Prefer BetterLyrics API (same as ArchiveTune) for word-by-word / TTML synced lyrics when available. */
-        val ENABLE_BETTER_LYRICS = booleanPreferencesKey("enable_better_lyrics")
 
         // Developer options
         val ALBUM_ART_QUALITY = stringPreferencesKey("album_art_quality")
@@ -1122,22 +1121,22 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         dataStore.edit { it[PreferencesKeys.LYRICS_SOURCE_PREFERENCE] = preference.name }
     }
 
+    /**
+     * When enabled, prefer BetterLyrics (TTML / word-by-word karaoke timing) when fetching
+     * online lyrics — same source used by ArchiveTune.
+     */
+    val enableBetterLyricsWordByWordFlow: Flow<Boolean> =
+        pref { it[PreferencesKeys.ENABLE_BETTER_LYRICS_WORD_BY_WORD] ?: false }
+
+    suspend fun setEnableBetterLyricsWordByWord(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.ENABLE_BETTER_LYRICS_WORD_BY_WORD] = enabled }
+    }
+
     val autoScanLrcFilesFlow: Flow<Boolean> =
         pref { it[PreferencesKeys.AUTO_SCAN_LRC_FILES] ?: false }
 
     suspend fun setAutoScanLrcFiles(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.AUTO_SCAN_LRC_FILES] = enabled }
-    }
-
-    /**
-     * When enabled, Musicfy tries BetterLyrics (ArchiveTune / lyrics-api.boidu.dev)
-     * for word-by-word (TTML) synced lyrics before falling back to other online sources.
-     */
-    val enableBetterLyricsFlow: Flow<Boolean> =
-        pref { it[PreferencesKeys.ENABLE_BETTER_LYRICS] ?: true }
-
-    suspend fun setEnableBetterLyrics(enabled: Boolean) {
-        dataStore.edit { it[PreferencesKeys.ENABLE_BETTER_LYRICS] = enabled }
     }
 
     val immersiveLyricsEnabledFlow: Flow<Boolean> =

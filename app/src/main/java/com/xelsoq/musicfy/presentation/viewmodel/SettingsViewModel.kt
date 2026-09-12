@@ -78,8 +78,8 @@ data class SettingsUiState(
     val persistentShuffleEnabled: Boolean = false,
     val folderBackGestureNavigation: Boolean = true,
     val lyricsSourcePreference: LyricsSourcePreference = LyricsSourcePreference.EMBEDDED_FIRST,
+    val enableBetterLyricsWordByWord: Boolean = false,
     val autoScanLrcFiles: Boolean = false,
-    val enableBetterLyrics: Boolean = true,
     val blockedDirectories: Set<String> = emptySet(),
     val availableModels: List<GeminiModel> = emptyList(),
     val isLoadingModels: Boolean = false,
@@ -732,8 +732,8 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            userPreferencesRepository.enableBetterLyricsFlow.collect { enabled ->
-                _uiState.update { it.copy(enableBetterLyrics = enabled) }
+            userPreferencesRepository.enableBetterLyricsWordByWordFlow.collect { enabled ->
+                _uiState.update { it.copy(enableBetterLyricsWordByWord = enabled) }
             }
         }
 
@@ -1032,15 +1032,15 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setAutoScanLrcFiles(enabled: Boolean) {
+    fun setEnableBetterLyricsWordByWord(enabled: Boolean) {
         viewModelScope.launch {
-            userPreferencesRepository.setAutoScanLrcFiles(enabled)
+            userPreferencesRepository.setEnableBetterLyricsWordByWord(enabled)
         }
     }
 
-    fun setEnableBetterLyrics(enabled: Boolean) {
+    fun setAutoScanLrcFiles(enabled: Boolean) {
         viewModelScope.launch {
-            userPreferencesRepository.setEnableBetterLyrics(enabled)
+            userPreferencesRepository.setAutoScanLrcFiles(enabled)
         }
     }
 

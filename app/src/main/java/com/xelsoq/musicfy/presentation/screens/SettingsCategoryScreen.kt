@@ -532,17 +532,11 @@ fun SettingsCategoryScreen(
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SwitchSettingItem(
-                                    title = stringResource(R.string.settings_better_lyrics_title),
-                                    subtitle = stringResource(R.string.settings_better_lyrics_subtitle),
-                                    checked = uiState.enableBetterLyrics,
-                                    onCheckedChange = settingsViewModel::setEnableBetterLyrics,
-                                    leadingIcon = {
-                                        Icon(
-                                            painterResource(R.drawable.rounded_lyrics_24),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.secondary
-                                        )
-                                    }
+                                    title = stringResource(R.string.settings_better_lyrics_word_by_word_title),
+                                    subtitle = stringResource(R.string.settings_better_lyrics_word_by_word_subtitle),
+                                    checked = uiState.enableBetterLyricsWordByWord,
+                                    onCheckedChange = { settingsViewModel.setEnableBetterLyricsWordByWord(it) },
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                                 SettingsItem(
                                     title = stringResource(R.string.settings_reset_imported_lyrics_title),
