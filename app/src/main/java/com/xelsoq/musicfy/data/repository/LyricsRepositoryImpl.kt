@@ -976,13 +976,16 @@ class LyricsRepositoryImpl @Inject constructor(
             val root = com.google.gson.JsonParser.parseString(trimmed)
             fun dig(element: com.google.gson.JsonElement?, depth: Int = 0): String? {
                 if (element == null || depth > 3) return null
-                when {
+                return when {
                     element.isJsonPrimitive -> {
                         val content = element.asString
-                        return if (ttmlRoot.containsMatchIn(content.take(4096))) content
-                        else if (depth < 2) {
-                            runCatching { dig(com.google.gson.JsonParser.parseString(content), depth + 1) }.getOrNull()
-                        } else null
+                        when {
+                            ttmlRoot.containsMatchIn(content.take(4096)) -> content
+                            depth < 2 -> runCatching {
+                                dig(com.google.gson.JsonParser.parseString(content), depth + 1)
+                            }.getOrNull()
+                            else -> null
+                        }
                     }
                     element.isJsonObject -> {
                         val obj = element.asJsonObject
@@ -991,7 +994,6 @@ class LyricsRepositoryImpl @Inject constructor(
                                 dig(obj.get(key), depth + 1)?.let { return it }
                             }
                         }
-                        // score field optional — ignore
                         null
                     }
                     else -> null
