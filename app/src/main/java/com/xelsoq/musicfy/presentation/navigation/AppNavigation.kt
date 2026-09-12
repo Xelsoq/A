@@ -50,6 +50,7 @@ import com.xelsoq.musicfy.presentation.screens.LibraryScreen
 import com.xelsoq.musicfy.presentation.screens.MashupScreen
 import com.xelsoq.musicfy.presentation.screens.NavBarCornerRadiusScreen
 import com.xelsoq.musicfy.presentation.screens.PaletteStyleSettingsScreen
+import com.xelsoq.musicfy.presentation.screens.PlayerLayoutSettingsScreen
 import com.xelsoq.musicfy.presentation.screens.PlaylistDetailScreen
 import com.xelsoq.musicfy.presentation.screens.RecentlyPlayedScreen
 
@@ -254,6 +255,16 @@ fun AppNavigation(
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                     PaletteStyleSettingsScreen(
+                        playerViewModel = playerViewModel,
+                        onBackClick = { navController.popBackStack() }
+                    )
+                }
+            }
+            composable(
+                Screen.PlayerLayout.route,
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    PlayerLayoutSettingsScreen(
                         playerViewModel = playerViewModel,
                         onBackClick = { navController.popBackStack() }
                     )

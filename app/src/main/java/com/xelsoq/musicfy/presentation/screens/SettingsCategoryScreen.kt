@@ -65,6 +65,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ClearAll
+import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
@@ -614,6 +615,13 @@ fun SettingsCategoryScreen(
                                     leadingIcon = { Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.secondary) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = { navController.navigateSafely(Screen.PaletteStyle.route) }
+                                )
+                                SettingsItem(
+                                    title = stringResource(R.string.settings_player_layout_title),
+                                    subtitle = stringResource(R.string.settings_player_layout_subtitle),
+                                    leadingIcon = { Icon(Icons.Outlined.Dashboard, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    trailingIcon = { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                    onClick = { navController.navigateSafely(Screen.PlayerLayout.route) }
                                 )
                                 ThemeSelectorItem(
                                     label = stringResource(R.string.settings_carousel_style_title),

@@ -26,6 +26,7 @@ import com.xelsoq.musicfy.data.preferences.AlbumArtPaletteStyle
 import com.xelsoq.musicfy.data.preferences.AppLanguage
 import com.xelsoq.musicfy.data.preferences.CollagePattern
 import com.xelsoq.musicfy.data.preferences.FullPlayerLoadingTweaks
+import com.xelsoq.musicfy.data.preferences.PlayerLayoutConfig
 import com.xelsoq.musicfy.data.preferences.ThemePreferencesRepository
 import com.xelsoq.musicfy.data.repository.LyricsRepository
 import com.xelsoq.musicfy.data.repository.MusicRepository
@@ -87,6 +88,7 @@ data class SettingsUiState(
     val beta05CleanInstallDisclaimerDismissed: Boolean? = null,
     val fullPlayerLoadingTweaks: FullPlayerLoadingTweaks = FullPlayerLoadingTweaks(),
     val showPlayerFileInfo: Boolean = true,
+    val playerLayoutConfig: PlayerLayoutConfig = PlayerLayoutConfig.default(),
     // Developer Options
     val albumArtQuality: AlbumArtQuality = AlbumArtQuality.MEDIUM,
     val albumArtCacheLimitMb: Int = 200,
@@ -725,6 +727,12 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            userPreferencesRepository.playerLayoutConfigFlow.collect { config ->
+                _uiState.update { it.copy(playerLayoutConfig = config) }
+            }
+        }
+
+        viewModelScope.launch {
             userPreferencesRepository.useAnimatedLyricsFlow.collect { enabled ->
                 _uiState.update { it.copy(useAnimatedLyrics = enabled) }
             }
@@ -944,6 +952,12 @@ class SettingsViewModel @Inject constructor(
     fun setShowPlayerFileInfo(show: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setShowPlayerFileInfo(show)
+        }
+    }
+
+    fun setPlayerLayoutConfig(config: PlayerLayoutConfig) {
+        viewModelScope.launch {
+            userPreferencesRepository.setPlayerLayoutConfig(config)
         }
     }
 

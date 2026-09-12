@@ -119,6 +119,9 @@ import com.xelsoq.musicfy.data.model.Song
 import com.xelsoq.musicfy.data.preferences.AlbumArtQuality
 import com.xelsoq.musicfy.data.preferences.CarouselStyle
 import com.xelsoq.musicfy.data.preferences.FullPlayerLoadingTweaks
+import com.xelsoq.musicfy.data.preferences.PlayerLayoutConfig
+import com.xelsoq.musicfy.data.preferences.PlayerLayoutGrid
+import com.xelsoq.musicfy.data.preferences.PlayerLayoutItemId
 import com.xelsoq.musicfy.presentation.components.AlbumCarouselSection
 import com.xelsoq.musicfy.presentation.components.AutoScrollingTextOnDemand
 import com.xelsoq.musicfy.presentation.components.LocalMaterialTheme
@@ -243,6 +246,7 @@ fun FullPlayerContent(
     var showArtistPicker by rememberSaveable { mutableStateOf(false) }
     
     val lyricsSearchUiState by playerViewModel.lyricsSearchUiState.collectAsStateWithLifecycle()
+    val playerLayoutConfig by playerViewModel.playerLayoutConfig.collectAsStateWithLifecycle()
 
     // Single subscription — replaces 11 independent collectAsStateWithLifecycle calls.
     // distinctUntilChanged in the ViewModel ensures this only emits when something
@@ -925,7 +929,8 @@ fun FullPlayerContent(
                     albumCoverSection = albumCoverSection,
                     songMetadataSection = portraitSongMetadataSection,
                     playerProgressSection = playerProgressSection,
-                    controlsSection = controlsSection
+                    controlsSection = controlsSection,
+                    layoutConfig = playerLayoutConfig
                 )
             }
         }
@@ -1373,8 +1378,21 @@ private fun FullPlayerPortraitContent(
     albumCoverSection: @Composable (Modifier) -> Unit,
     songMetadataSection: @Composable () -> Unit,
     playerProgressSection: @Composable () -> Unit,
-    controlsSection: @Composable () -> Unit
+    controlsSection: @Composable () -> Unit,
+    layoutConfig: PlayerLayoutConfig = PlayerLayoutConfig.default()
 ) {
+    if (layoutConfig.enabled && layoutConfig.slots.isNotEmpty()) {
+        FullPlayerCustomGridContent(
+            paddingValues = paddingValues,
+            layoutConfig = layoutConfig,
+            albumCoverSection = albumCoverSection,
+            songMetadataSection = songMetadataSection,
+            playerProgressSection = playerProgressSection,
+            controlsSection = controlsSection
+        )
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1399,6 +1417,85 @@ private fun FullPlayerPortraitContent(
         }
 
         controlsSection()
+    }
+}
+
+@Composable
+private fun FullPlayerCustomGridContent(
+    paddingValues: PaddingValues,
+    layoutConfig: PlayerLayoutConfig,
+    albumCoverSection: @Composable (Modifier) -> Unit,
+    songMetadataSection: @Composable () -> Unit,
+    playerProgressSection: @Composable () -> Unit,
+    controlsSection: @Composable () -> Unit
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        val cols = PlayerLayoutGrid.COLUMNS
+        val rows = PlayerLayoutGrid.ROWS
+        val cellW = maxWidth / cols
+        val cellH = maxHeight / rows
+
+        layoutConfig.slots.forEach { (id, slot) ->
+            val itemModifier = Modifier
+                .padding(
+                    start = cellW * slot.col,
+                    top = cellH * slot.row
+                )
+                .size(
+                    width = cellW * slot.colSpan,
+                    height = cellH * slot.rowSpan
+                )
+
+            Box(
+                modifier = itemModifier,
+                contentAlignment = Alignment.Center
+            ) {
+                when (id) {
+                    PlayerLayoutItemId.ALBUM_ART -> {
+                        albumCoverSection(
+                            Modifier
+                                .fillMaxSize()
+                                .padding(4.dp)
+                        )
+                    }
+                    PlayerLayoutItemId.METADATA -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 4.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            songMetadataSection()
+                        }
+                    }
+                    PlayerLayoutItemId.PROGRESS -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            playerProgressSection()
+                        }
+                    }
+                    PlayerLayoutItemId.CONTROLS -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            controlsSection()
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

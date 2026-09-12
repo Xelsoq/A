@@ -184,6 +184,8 @@ class UserPreferencesRepository @Inject constructor(
         val FULL_PLAYER_CLOSE_THRESHOLD = intPreferencesKey("full_player_close_threshold_percent")
         // Kept only for one-time cleanup after removing the legacy player sheet.
         val USE_PLAYER_SHEET_V2 = booleanPreferencesKey("use_player_sheet_v2")
+        /** JSON-serialized [PlayerLayoutConfig] for the customizable full-player grid. */
+        val PLAYER_LAYOUT_CONFIG = stringPreferencesKey("player_layout_config_json")
 
         // Multi-artist
         val ARTIST_DELIMITERS = stringPreferencesKey("artist_delimiters")
@@ -520,6 +522,23 @@ class UserPreferencesRepository @Inject constructor(
     /** Removes the deprecated player sheet V2 preference key. */
     suspend fun clearDeprecatedPlayerSheetPreference() {
         dataStore.edit { it.remove(PreferencesKeys.USE_PLAYER_SHEET_V2) }
+    }
+
+    // ─── Custom full-player layout (4×7 widget-style grid) ────────────────────
+
+    val playerLayoutConfigFlow: Flow<PlayerLayoutConfig> =
+        pref { preferences ->
+            decodeJsonPref(
+                preferences,
+                PreferencesKeys.PLAYER_LAYOUT_CONFIG,
+                PlayerLayoutConfig.default()
+            )
+        }
+
+    suspend fun setPlayerLayoutConfig(config: PlayerLayoutConfig) {
+        dataStore.edit {
+            it[PreferencesKeys.PLAYER_LAYOUT_CONFIG] = json.encodeToString(config)
+        }
     }
 
     // ─── Transitions ──────────────────────────────────────────────────────────
