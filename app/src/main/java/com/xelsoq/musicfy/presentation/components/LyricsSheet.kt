@@ -804,9 +804,13 @@ fun LyricsSheet(
                                 footer = {
                                     if (lyrics?.areFromRemote == true) {
                                         item(key = "provider_text") {
+                                            val isWordByWord = lyrics.synced?.any { !it.words.isNullOrEmpty() } == true
                                             ProviderText(
                                                 providerText = stringResource(R.string.lyrics_provided_by),
-                                                uri = stringResource(R.string.lyrics_lrclib_uri),
+                                                uri = stringResource(
+                                                    if (isWordByWord) R.string.lyrics_betterlyrics_uri
+                                                    else R.string.lyrics_lrclib_uri
+                                                ),
                                                 textAlign = TextAlign.Center,
                                                 accentColor = lyricHighlightColor,
                                                 modifier = Modifier

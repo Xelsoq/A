@@ -62,6 +62,14 @@ private fun Lyrics.isValid(): Boolean = !synced.isNullOrEmpty() || !plain.isNull
 private fun Lyrics.hasWordByWord(): Boolean =
     synced?.any { !it.words.isNullOrEmpty() } == true
 
+/** Prefer primary artist for remote lyrics APIs (BetterLyrics matches poorly on multi-artist strings). */
+private fun songArtistForLyricsSearch(song: Song): String {
+    song.artists.firstOrNull { it.isPrimary }?.name?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+    song.artists.firstOrNull()?.name?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+    song.artist.trim().takeIf { it.isNotEmpty() }?.let { return it }
+    return song.displayArtist.trim()
+}
+
 internal fun parseBestEmbeddedLyricsField(propertyMap: Map<String, Array<String>>?): Lyrics? {
     var firstPlainLyrics: Lyrics? = null
 
@@ -412,7 +420,7 @@ class LyricsRepositoryImpl @Inject constructor(
             try {
                 val better = betterLyricsClient.fetchWordByWordLyrics(
                     title = song.title,
-                    artist = song.displayArtist,
+                    artist = songArtistForLyricsSearch(song),
                     album = song.album,
                     durationSeconds = (song.duration / 1000).toInt().coerceAtLeast(0)
                 )
@@ -519,7 +527,7 @@ class LyricsRepositoryImpl @Inject constructor(
         if (preferBetterLyrics) {
             val better = betterLyricsClient.fetchWordByWordLyrics(
                 title = song.title,
-                artist = song.displayArtist,
+                artist = songArtistForLyricsSearch(song),
                 album = song.album,
                 durationSeconds = (song.duration / 1000).toInt().coerceAtLeast(0)
             )
@@ -1340,13 +1348,60 @@ class LyricsRepositoryImpl @Inject constructor(
             LogUtils.d(this@LyricsRepositoryImpl, "Fetching lyrics from remote for: ${song.title}")
 
             val cacheKey = generateCacheKey(song.id)
+            val preferBetterLyrics = try {
+                userPreferencesRepository.preferBetterLyricsFlow.first()
+            } catch (_: Exception) {
+                false
+            }
+
             loadStoredLyrics(song, cacheKey, includeMemoryCache = true)?.let { stored ->
-                lyricsCache.put(cacheKey, stored.first)
-                LogUtils.d(
-                    this@LyricsRepositoryImpl,
-                    "Skipping remote lyrics fetch because stored lyrics already exist for: ${song.title}"
-                )
-                return@withContext Result.success(stored)
+                val lyrics = stored.first
+                // Keep stored lyrics unless we want BetterLyrics word-by-word and they lack it
+                if (!preferBetterLyrics || lyrics.hasWordByWord()) {
+                    lyricsCache.put(cacheKey, lyrics)
+                    LogUtils.d(
+                        this@LyricsRepositoryImpl,
+                        "Skipping remote lyrics fetch because stored lyrics already exist for: ${song.title} (wordByWord=${lyrics.hasWordByWord()})"
+                    )
+                    return@withContext Result.success(stored)
+                }
+                Log.d(TAG, "Stored lyrics lack word timings; preferring BetterLyrics before LRCLIB")
+            }
+
+            if (preferBetterLyrics) {
+                try {
+                    val better = betterLyricsClient.fetchWordByWordLyrics(
+                        title = song.title,
+                        artist = songArtistForLyricsSearch(song),
+                        album = song.album,
+                        durationSeconds = (song.duration / 1000).toInt().coerceAtLeast(0)
+                    )
+                    if (better != null && better.isValid() && better.hasWordByWord()) {
+                        val raw = lyricsToRawContent(better)
+                        if (!raw.isNullOrBlank()) {
+                            try {
+                                lyricsDao.insert(
+                                    com.xelsoq.musicfy.data.database.LyricsEntity(
+                                        songId = song.id.toLong(),
+                                        content = raw,
+                                        isSynced = true,
+                                        source = "betterlyrics"
+                                    )
+                                )
+                            } catch (e: NumberFormatException) {
+                                Log.w(TAG, "Skipping DB update for non-numeric ID: ${song.id}")
+                            }
+                            lyricsCache.put(cacheKey, better)
+                            saveLocalLyricsJson(song, better)
+                            Log.d(TAG, "===== fetchFromRemote: BetterLyrics word-by-word OK =====")
+                            return@withContext Result.success(better to raw)
+                        }
+                        Log.w(TAG, "BetterLyrics returned words but empty raw content")
+                    }
+                    Log.d(TAG, "fetchFromRemote: BetterLyrics unavailable/no words, falling back to LRCLIB")
+                } catch (e: Exception) {
+                    Log.w(TAG, "fetchFromRemote BetterLyrics error: ${e.message}")
+                }
             }
 
             // First, try the search API which is more flexible, then pick the best match

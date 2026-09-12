@@ -1180,7 +1180,14 @@ fun ProviderText(
                 styles = TextLinkStyles(style = SpanStyle(color = linkColor))
             )
         ) {
-            append(" LRCLIB")
+            val host = runCatching {
+                java.net.URI(uri).host
+                    ?.removePrefix("www.")
+                    ?.substringBefore(".")
+                    ?.replaceFirstChar { it.uppercase() }
+            }.getOrNull()
+            append(" ")
+            append(host ?: "LRCLIB")
         }
     }
 

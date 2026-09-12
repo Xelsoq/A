@@ -26,6 +26,10 @@ class BetterLyricsClient @Inject constructor(
         private const val PATH_TTML = "getLyrics"
         private const val PATH_KUGOU = "kugou/getLyrics"
         private val TTML_ROOT = Regex("""<(?:[A-Za-z_][\w.-]*:)?tt(?:\s|>)""", RegexOption.IGNORE_CASE)
+        private val TITLE_NOISE = Regex(
+            """\s*[\(\[\{]?\s*(official\s+video|official\s+audio|lyrics?|lyric\s+video|audio|video|mv|hd|hq|remaster(?:ed)?|live|radio\s+edit|explicit|clean)\s*[\)\]\}]?""",
+            RegexOption.IGNORE_CASE
+        )
     }
 
     suspend fun fetchWordByWordLyrics(
@@ -34,28 +38,58 @@ class BetterLyricsClient @Inject constructor(
         album: String? = null,
         durationSeconds: Int = -1
     ): Lyrics? = withContext(Dispatchers.IO) {
-        val cleanTitle = title.trim()
+        val cleanTitle = sanitizeTitle(title)
         val cleanArtist = artist.trim()
         if (cleanTitle.isBlank() || cleanArtist.isBlank()) return@withContext null
 
-        var best: Lyrics? = null
-        for (path in listOf(PATH_TTML, PATH_KUGOU)) {
-            val candidate = fetchFromEndpoint(path, cleanTitle, cleanArtist, album?.trim().orEmpty(), durationSeconds)
-                ?: continue
-            val hasWords = candidate.synced?.any { !it.words.isNullOrEmpty() } == true
-            Log.d(TAG, "$path parsed: lines=${candidate.synced?.size}, wordByWord=$hasWords")
-            if (hasWords) {
-                return@withContext candidate
-            }
-            if (best == null && candidate.isValidLoose()) {
-                best = candidate
+        // Try primary artist first, then first segment before comma (multi-artist fallback)
+        val artistVariants = linkedSetOf(
+            cleanArtist,
+            cleanArtist.substringBefore(",").trim(),
+            cleanArtist.substringBefore("&").trim(),
+            cleanArtist.substringBefore(" feat", ignoreCase = true).trim(),
+            cleanArtist.substringBefore(" ft.", ignoreCase = true).trim(),
+        ).filter { it.isNotBlank() }
+
+        var bestLineOnly: Lyrics? = null
+        for (artistVariant in artistVariants) {
+            for (path in listOf(PATH_TTML, PATH_KUGOU)) {
+                val candidate = fetchFromEndpoint(
+                    path = path,
+                    title = cleanTitle,
+                    artist = artistVariant,
+                    album = album?.trim().orEmpty(),
+                    durationSeconds = durationSeconds
+                ) ?: continue
+
+                val hasWords = candidate.synced?.any { !it.words.isNullOrEmpty() } == true
+                val wordCount = candidate.synced?.sumOf { it.words?.size ?: 0 } ?: 0
+                Log.d(
+                    TAG,
+                    "$path artist='$artistVariant' lines=${candidate.synced?.size} wordByWord=$hasWords words=$wordCount"
+                )
+                if (hasWords && wordCount >= 4) {
+                    return@withContext candidate
+                }
+                if (bestLineOnly == null && !candidate.synced.isNullOrEmpty()) {
+                    bestLineOnly = candidate
+                }
             }
         }
-        best
+        // Prefer returning nothing over line-only so callers fall back / keep searching
+        null
     }
 
-    private fun Lyrics.isValidLoose(): Boolean =
-        !synced.isNullOrEmpty() || !plain.isNullOrEmpty()
+    private fun sanitizeTitle(title: String): String {
+        var t = title.trim()
+        // Strip common noise once
+        repeat(3) {
+            val next = TITLE_NOISE.replace(t, "").trim()
+            if (next == t) return@repeat
+            t = next
+        }
+        return t.ifBlank { title.trim() }
+    }
 
     private fun fetchFromEndpoint(
         path: String,
@@ -80,20 +114,24 @@ class BetterLyricsClient @Inject constructor(
 
             okHttpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    Log.d(TAG, "$path status ${response.code}")
+                    Log.d(TAG, "$path status ${response.code} for '$title' / '$artist'")
                     return null
                 }
                 val body = response.body?.string()?.removePrefix("\uFEFF") ?: return null
-                Log.d(TAG, "$path body length=${body.length}, starts=${body.take(40)}")
+                Log.d(TAG, "$path bodyLen=${body.length}")
                 val ttml = extractTtml(body) ?: run {
-                    Log.d(TAG, "$path: no TTML payload found")
+                    Log.d(TAG, "$path: no TTML in response")
                     return null
                 }
-                // LyricsUtils already detects TTML and converts via TtmlLyricsParser → enhanced LRC → SyncedWord
+                // LyricsUtils detects TTML and converts spans → SyncedWord
                 val parsed = LyricsUtils.parseLyrics(ttml).copy(areFromRemote = true)
                 if (parsed.synced.isNullOrEmpty() && parsed.plain.isNullOrEmpty()) {
-                    Log.d(TAG, "$path: parse produced empty lyrics")
+                    Log.d(TAG, "$path: empty parse")
                     return null
+                }
+                val hasWords = parsed.synced?.any { !it.words.isNullOrEmpty() } == true
+                if (!hasWords) {
+                    Log.d(TAG, "$path: TTML parsed but no word timings (line-level only)")
                 }
                 parsed
             }
@@ -107,7 +145,6 @@ class BetterLyricsClient @Inject constructor(
         if (TTML_ROOT.containsMatchIn(raw.take(4096))) return raw
         return try {
             val obj = JSONObject(raw)
-            // Prefer top-level ttml (BetterLyrics API shape: {"ttml":"<tt ...>"})
             obj.optString("ttml").takeIf { it.isNotBlank() && TTML_ROOT.containsMatchIn(it.take(4096)) }
                 ?: sequenceOf("lyrics", "data", "result", "response")
                     .mapNotNull { key ->
@@ -124,7 +161,7 @@ class BetterLyricsClient @Inject constructor(
                     }
                     .firstOrNull { TTML_ROOT.containsMatchIn(it.take(4096)) }
         } catch (e: Exception) {
-            Log.d(TAG, "extractTtml JSON parse failed: ${e.message}")
+            Log.d(TAG, "extractTtml failed: ${e.message}")
             null
         }
     }
