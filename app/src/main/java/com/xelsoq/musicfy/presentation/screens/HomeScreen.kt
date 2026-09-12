@@ -91,6 +91,10 @@ import com.xelsoq.musicfy.presentation.components.AlbumArtCollage
 import com.xelsoq.musicfy.presentation.components.BetaInfoBottomSheet
 import com.xelsoq.musicfy.presentation.components.Beta05CleanInstallDisclaimerDialog
 import com.xelsoq.musicfy.presentation.components.ChangelogBottomSheet
+import com.xelsoq.musicfy.presentation.netease.dashboard.NeteaseDashboardViewModel
+import com.xelsoq.musicfy.presentation.jellyfin.dashboard.JellyfinDashboardViewModel
+import com.xelsoq.musicfy.presentation.navidrome.dashboard.NavidromeDashboardViewModel
+import com.xelsoq.musicfy.presentation.qqmusic.dashboard.QqMusicDashboardViewModel
 import com.xelsoq.musicfy.presentation.components.DailyMixSection
 import com.xelsoq.musicfy.presentation.components.QuickPicksSection
 import com.xelsoq.musicfy.presentation.components.FavoriteArtistReleasesSection
@@ -142,6 +146,10 @@ fun HomeScreen(
     paddingValuesParent: PaddingValues,
     playerViewModel: PlayerViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
+    neteaseViewModel: NeteaseDashboardViewModel = hiltViewModel(),
+    qqMusicViewModel: QqMusicDashboardViewModel = hiltViewModel(),
+    navidromeViewModel: NavidromeDashboardViewModel = hiltViewModel(),
+    jellyfinViewModel: JellyfinDashboardViewModel = hiltViewModel(),
     quickPicksViewModel: QuickPicksViewModel = hiltViewModel(),
     favoriteArtistReleasesViewModel: FavoriteArtistReleasesViewModel = hiltViewModel(),
     onOpenSidebar: () -> Unit
@@ -160,7 +168,8 @@ fun HomeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val quickPicks by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
-        quickPicksViewModel.refresh()
+        // Quick Picks load once per app process (ViewModel init + session cache).
+        // Do not force a network refresh every time Home is opened.
         favoriteArtistReleasesViewModel.loadReleases()
     }
     val artistReleases by favoriteArtistReleasesViewModel.releases.collectAsStateWithLifecycle()
@@ -658,10 +667,27 @@ fun HomeScreen(
         }
     }
     if (showStreamingProviderSheet) {
-                        StreamingProviderSheet(
+        val isNeteaseLoggedIn by neteaseViewModel.isLoggedIn.collectAsStateWithLifecycle()
+        val isQqMusicLoggedIn by qqMusicViewModel.isLoggedIn.collectAsStateWithLifecycle()
+        val isNavidromeLoggedIn by navidromeViewModel.isLoggedIn.collectAsStateWithLifecycle()
+        val isJellyfinLoggedIn by jellyfinViewModel.isLoggedIn.collectAsStateWithLifecycle()
+        StreamingProviderSheet(
             onDismissRequest = { showStreamingProviderSheet = false },
-            onNavigateToYoutubeAuth = {
-                navController.navigateSafely(Screen.YoutubeAuth.route)
+            isNeteaseLoggedIn = isNeteaseLoggedIn,
+            onNavigateToNeteaseDashboard = {
+                navController.navigateSafely(Screen.NeteaseDashboard.route)
+            },
+            isQqMusicLoggedIn = isQqMusicLoggedIn,
+            onNavigateToQqMusicDashboard = {
+                navController.navigateSafely(Screen.QqMusicDashboard.route)
+            },
+            isNavidromeLoggedIn = isNavidromeLoggedIn,
+            onNavigateToNavidromeDashboard = {
+                navController.navigateSafely(Screen.NavidromeDashboard.route)
+            },
+            isJellyfinLoggedIn = isJellyfinLoggedIn,
+            onNavigateToJellyfinDashboard = {
+                navController.navigateSafely(Screen.JellyfinDashboard.route)
             }
         )
     }

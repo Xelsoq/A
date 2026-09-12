@@ -35,8 +35,14 @@ private const val PREFS_NAME = "quick_picks_cache"
 private const val KEY_SONGS = "songs_json"
 private const val KEY_CATEGORIES = "categories_json"
 private const val KEY_CACHE_TIMESTAMP = "cache_timestamp"
-// Cache valid for 4 hours (shorter than before so new releases appear faster)
-private const val CACHE_MAX_AGE_MS = 4 * 60 * 60 * 1000L
+
+/**
+ * Within a single process lifetime Quick Picks stay frozen after the first successful load.
+ * They only change again the next time the app is cold-started (process killed / reopened).
+ */
+private object QuickPicksSession {
+    @Volatile var networkLoadDone: Boolean = false
+}
 
 @HiltViewModel
 class QuickPicksViewModel @Inject constructor(
@@ -80,6 +86,9 @@ class QuickPicksViewModel @Inject constructor(
     }
 
     fun refresh() {
+        // Ignore mid-session refreshes once Quick Picks have been loaded.
+        // New picks appear only after the app process is restarted.
+        if (QuickPicksSession.networkLoadDone && _quickPicks.value.isNotEmpty()) return
         loadQuickPicks(_selectedCategory.value)
     }
 
@@ -173,6 +182,13 @@ class QuickPicksViewModel @Inject constructor(
 
     private fun loadQuickPicks(category: String) {
         viewModelScope.launch {
+            // Freeze list for the rest of this process once loaded
+            if (QuickPicksSession.networkLoadDone &&
+                _quickPicks.value.isNotEmpty() &&
+                _selectedCategory.value == category
+            ) {
+                return@launch
+            }
             if (_quickPicks.value.isEmpty()) {
                 _isLoading.value = true
             }
@@ -221,6 +237,9 @@ class QuickPicksViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.tag("QuickPicks").e(e, "Error loading quick picks")
             } finally {
+                if (_quickPicks.value.isNotEmpty()) {
+                    QuickPicksSession.networkLoadDone = true
+                }
                 _isLoading.value = false
             }
         }

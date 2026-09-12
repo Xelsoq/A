@@ -542,6 +542,11 @@ class ArtistDetailViewModel @Inject constructor(
             } else {
                 _uiState.value.albumSections
             }
+            initialItems.forEach { section ->
+                section.browseId?.let { bid ->
+                    SearchStateHolder.albumIdMap[section.albumId] = bid
+                }
+            }
             _uiState.update { it.copy(allItems = initialItems, allItemsContinuation = null, isAllItemsLoading = false) }
             return
         }
@@ -556,15 +561,20 @@ class ArtistDetailViewModel @Inject constructor(
                 result.onSuccess { page ->
                     val mappedItems = page.items.mapNotNull { item ->
                         when (item) {
-                            is AlbumItem -> ArtistAlbumSection(
-                                albumId = item.browseId.hashCode().toLong(),
-                                title = item.title,
-                                year = item.year,
-                                albumArtUriString = item.thumbnail,
-                                browseId = item.browseId,
-                                songs = emptyList(),
-                                sectionType = if (type == "singles") ArtistSectionType.SINGLE_EP else ArtistSectionType.ALBUM
-                            )
+                            is AlbumItem -> {
+                                val longId = ytAlbumLongId(item.browseId)
+                                // Register so AlbumDetail can resolve the YouTube browseId
+                                SearchStateHolder.albumIdMap[longId] = item.browseId
+                                ArtistAlbumSection(
+                                    albumId = longId,
+                                    title = item.title,
+                                    year = item.year,
+                                    albumArtUriString = item.thumbnail,
+                                    browseId = item.browseId,
+                                    songs = emptyList(),
+                                    sectionType = if (type == "singles") ArtistSectionType.SINGLE_EP else ArtistSectionType.ALBUM
+                                )
+                            }
                             else -> null
                         }
                     }
@@ -607,15 +617,20 @@ class ArtistDetailViewModel @Inject constructor(
                 result.onSuccess { page ->
                     val mappedItems = page.items.mapNotNull { item ->
                         when (item) {
-                            is AlbumItem -> ArtistAlbumSection(
-                                albumId = item.browseId.hashCode().toLong(),
-                                title = item.title,
-                                year = item.year,
-                                albumArtUriString = item.thumbnail,
-                                browseId = item.browseId,
-                                songs = emptyList(),
-                                sectionType = if (type == "singles") ArtistSectionType.SINGLE_EP else ArtistSectionType.ALBUM
-                            )
+                            is AlbumItem -> {
+                                val longId = ytAlbumLongId(item.browseId)
+                                // Register so AlbumDetail can resolve the YouTube browseId
+                                SearchStateHolder.albumIdMap[longId] = item.browseId
+                                ArtistAlbumSection(
+                                    albumId = longId,
+                                    title = item.title,
+                                    year = item.year,
+                                    albumArtUriString = item.thumbnail,
+                                    browseId = item.browseId,
+                                    songs = emptyList(),
+                                    sectionType = if (type == "singles") ArtistSectionType.SINGLE_EP else ArtistSectionType.ALBUM
+                                )
+                            }
                             else -> null
                         }
                     }
@@ -729,6 +744,10 @@ class ArtistDetailViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun ytAlbumLongId(browseId: String): Long {
+        return -(16_000_000_000_000L + kotlin.math.abs(browseId.hashCode().toLong()))
     }
 
     private fun refreshOnlineSongCount(

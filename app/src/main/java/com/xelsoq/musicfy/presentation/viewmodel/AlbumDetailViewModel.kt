@@ -47,9 +47,10 @@ class AlbumDetailViewModel @Inject constructor(
             val mappedBrowseId = albumId?.let { SearchStateHolder.albumIdMap[it] }
             when {
                 mappedBrowseId != null -> loadOnlineAlbumData(mappedBrowseId)
-                albumId != null -> loadAlbumData(albumId)
                 // Non-numeric id: treat as YouTube browseId directly
-                else -> loadOnlineAlbumData(albumIdString)
+                albumId == null -> loadOnlineAlbumData(albumIdString)
+                // Local library album
+                else -> loadAlbumData(albumId)
             }
         } else {
             _uiState.update {
