@@ -169,8 +169,8 @@ object QueuePreloadManager {
                     }
                 }
 
-                // Small delay between preloads to avoid hammering the network
-                delay(500)
+                // Short delay between preloads — stream resolve is single-flight protected
+                delay(120)
             }
         }
     }

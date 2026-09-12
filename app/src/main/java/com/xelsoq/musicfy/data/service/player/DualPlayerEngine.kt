@@ -545,20 +545,18 @@ class DualPlayerEngine @Inject constructor(
             // --- Pre-Resolve Next/Prev Tracks with Debounce to prevent flooding ---
             preResolutionJob?.cancel()
             preResolutionJob = scope.launch {
-                delay(600) // Wait for user to stop skipping/navigating
+                delay(200) // Brief debounce when user is skip-spamming
                 try {
                     val currentIndex = playerA.currentMediaItemIndex
                     if (currentIndex != C.INDEX_UNSET) {
-                        // Resolve each neighbour directly — no intermediate list allocation.
-                        if (currentIndex + 1 < playerA.mediaItemCount) {
-                            playerA.getMediaItemAt(currentIndex + 1).localConfiguration?.uri
-                                ?.takeIf { it.scheme in CLOUD_PROXY_SCHEMES }
-                                ?.let { resolveCloudUri(it) }
-                        }
-                        if (currentIndex - 1 >= 0) {
-                            playerA.getMediaItemAt(currentIndex - 1).localConfiguration?.uri
-                                ?.takeIf { it.scheme in CLOUD_PROXY_SCHEMES }
-                                ?.let { resolveCloudUri(it) }
+                        // Resolve next two + previous so transitions start instantly at high quality
+                        for (offset in listOf(1, 2, -1)) {
+                            val idx = currentIndex + offset
+                            if (idx in 0 until playerA.mediaItemCount) {
+                                playerA.getMediaItemAt(idx).localConfiguration?.uri
+                                    ?.takeIf { it.scheme in CLOUD_PROXY_SCHEMES }
+                                    ?.let { resolveCloudUri(it) }
+                            }
                         }
                     }
                 } catch (e: Exception) {

@@ -16,6 +16,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.supervisorScope
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -66,6 +72,12 @@ object YoutubeHelper {
      * Holds up to 100 entries; expired/invalid entries are evicted lazily on next access.
      */
     val streamUrlLruCache = LruCache<String, String>(200)
+
+    /**
+     * Single-flight map so concurrent resolve calls for the same video (player + preload)
+     * share one network resolution instead of stacking sequential client probes.
+     */
+    private val inFlightStreamResolves = ConcurrentHashMap<String, Deferred<String>>()
 
     /** Register a locally-available file path for a YouTube video ID so playback is instant. */
     private val localFilePathCache = LruCache<String, String>(200)
@@ -565,7 +577,24 @@ object YoutubeHelper {
             }
         }
 
-        val newUri = getSongUrlFromYoutube(context, song, lowQuality = false, maxBitrateKbps = maxBitrate)
+        // Single-flight: concurrent player + preload share one resolution for this cache key
+        val existing = inFlightStreamResolves[cacheKey]
+        if (existing != null) {
+            UmihiHelper.printd("$videoId : Awaiting in-flight stream resolve ($cacheKey)")
+            return existing.await()
+        }
+
+        val newUri = coroutineScope {
+            val deferred = async {
+                getSongUrlFromYoutube(context, song, lowQuality = false, maxBitrateKbps = maxBitrate)
+            }
+            inFlightStreamResolves[cacheKey] = deferred
+            try {
+                deferred.await()
+            } finally {
+                inFlightStreamResolves.remove(cacheKey, deferred)
+            }
+        }
         streamUrlLruCache.put(cacheKey, newUri)
         if (maxBitrate == 0 || maxBitrate >= 256) {
             streamUrlLruCache.put("${videoId}_high", newUri)
@@ -1020,79 +1049,98 @@ object YoutubeHelper {
         var didRefreshVisitorData = false
         val playerResponseCache = mutableMapOf<String, PlayerResponse>()
 
-        // Phase 1: If user preference is High Quality (maxBitrateKbps == 0), scan all clients for the highest bitrate Opus format first.
+        // Phase 1: High quality — probe clients in PARALLEL and pick the highest-bitrate
+        // validated Opus URL. Same quality ceiling as sequential scan, much lower latency.
         if (maxBitrateKbps == 0) {
-            UmihiHelper.printd("Enforcing HIGH quality Opus resolution first across all clients for videoId=$videoId...")
-            for (clientObj in clients) {
-                try {
-                    var playerResponse = playerResponseCache[clientObj.clientName]
-                    if (playerResponse == null) {
-                        var playerResResult = YouTube.player(
-                            videoId = videoId,
-                            playlistId = null,
-                            client = clientObj,
-                            signatureTimestamp = signatureTimestamp,
-                            setLogin = authState.hasPlaybackLoginContext,
-                            authState = authState
-                        )
-                        playerResponse = playerResResult.getOrNull()
-                        if (playerResponse != null) {
-                            var status = playerResponse.playabilityStatus.status
-                            var reason = playerResponse.playabilityStatus.reason.orEmpty()
-                            val isBot = "bot" in reason.lowercase(Locale.US) || "unusual traffic" in reason.lowercase(Locale.US) || "automated" in reason.lowercase(Locale.US)
+            UmihiHelper.printd("Enforcing HIGH quality Opus resolution in parallel for videoId=$videoId...")
+            data class HighOpusCandidate(val url: String, val bitrate: Int, val clientKey: String)
 
-                            if (status != "OK" && isBot && !didRefreshVisitorData) {
-                                val refreshedVisitorData = YouTube.visitorData().getOrNull()
-                                if (!refreshedVisitorData.isNullOrBlank()) {
-                                    YouTube.visitorData = refreshedVisitorData
-                                    authState = authState.copy(visitorData = refreshedVisitorData).normalized()
-                                    didRefreshVisitorData = true
-
-                                    playerResResult = YouTube.player(
-                                        videoId = videoId,
-                                        playlistId = null,
-                                        client = clientObj,
-                                        signatureTimestamp = signatureTimestamp,
-                                        setLogin = authState.hasPlaybackLoginContext,
-                                        authState = authState
-                                    )
-                                    playerResponse = playerResResult.getOrNull()
+            val parallelHits: List<HighOpusCandidate> = supervisorScope {
+                clients.map { clientObj ->
+                    async {
+                        try {
+                            var playerResResult = YouTube.player(
+                                videoId = videoId,
+                                playlistId = null,
+                                client = clientObj,
+                                signatureTimestamp = signatureTimestamp,
+                                setLogin = authState.hasPlaybackLoginContext,
+                                authState = authState
+                            )
+                            var playerResponse = playerResResult.getOrNull()
+                            if (playerResponse != null) {
+                                val status = playerResponse.playabilityStatus.status
+                                val reason = playerResponse.playabilityStatus.reason.orEmpty()
+                                val isBot = "bot" in reason.lowercase(Locale.US) ||
+                                    "unusual traffic" in reason.lowercase(Locale.US) ||
+                                    "automated" in reason.lowercase(Locale.US)
+                                if (status != "OK" && isBot) {
+                                    val refreshedVisitorData = YouTube.visitorData().getOrNull()
+                                    if (!refreshedVisitorData.isNullOrBlank()) {
+                                        YouTube.visitorData = refreshedVisitorData
+                                        playerResResult = YouTube.player(
+                                            videoId = videoId,
+                                            playlistId = null,
+                                            client = clientObj,
+                                            signatureTimestamp = signatureTimestamp,
+                                            setLogin = authState.hasPlaybackLoginContext,
+                                            authState = authState.copy(visitorData = refreshedVisitorData).normalized()
+                                        )
+                                        playerResponse = playerResResult.getOrNull()
+                                    }
                                 }
                             }
-                        }
-                        if (playerResponse != null) {
-                            playerResponseCache[clientObj.clientName] = playerResponse
-                        }
-                    }
-
-                    if (playerResponse == null || playerResponse.playabilityStatus.status != "OK") {
-                        continue
-                    }
-
-                    val opusFormats = playerResponse.streamingData?.adaptiveFormats.orEmpty()
-                        .filter { 
-                            it.mimeType.contains("opus", ignoreCase = true) && 
-                            it.bitrate > 0
-                        }
-                        .sortedByDescending { it.bitrate }
-
-                    for (candidate in opusFormats) {
-                        if (shouldSkipCipheredWebCandidate(clientObj, candidate, authState)) continue
-                        val deobfuscated = NewPipeUtils.getStreamUrl(candidate, videoId, clientObj, authState).getOrNull() ?: continue
-                        val patched = StreamClientUtils.patchClientVersion(deobfuscated, clientObj.clientVersion)
-                        
-                        if (validateStatus(patched)) {
-                            playerResponse.playbackTracking?.videostatsPlaybackUrl?.baseUrl?.let { baseUrl ->
-                                playbackTrackingCache[videoId] = baseUrl
+                            if (playerResponse == null || playerResponse.playabilityStatus.status != "OK") {
+                                return@async null
                             }
-                            lastSuccessfulClientKey = StreamClientUtils.buildClientKey(clientObj)
-                            UmihiHelper.printd("Enforced HIGH quality Opus URL resolved with client: ${clientObj.clientName} (bitrate: ${candidate.bitrate})")
-                            return patched
+                            // Cache for Phase 2 fallback (ConcurrentHashMap-style put is fine on HashMap from single writer after await)
+                            synchronized(playerResponseCache) {
+                                playerResponseCache[clientObj.clientName] = playerResponse
+                            }
+
+                            val opusFormats = playerResponse.streamingData?.adaptiveFormats.orEmpty()
+                                .filter {
+                                    it.mimeType.contains("opus", ignoreCase = true) && it.bitrate > 0
+                                }
+                                .sortedByDescending { it.bitrate }
+
+                            for (candidate in opusFormats) {
+                                if (shouldSkipCipheredWebCandidate(clientObj, candidate, authState)) continue
+                                val deobfuscated = NewPipeUtils.getStreamUrl(
+                                    candidate, videoId, clientObj, authState
+                                ).getOrNull() ?: continue
+                                val patched = StreamClientUtils.patchClientVersion(
+                                    deobfuscated, clientObj.clientVersion
+                                )
+                                if (validateStatus(patched)) {
+                                    playerResponse.playbackTracking?.videostatsPlaybackUrl?.baseUrl?.let { baseUrl ->
+                                        playbackTrackingCache[videoId] = baseUrl
+                                    }
+                                    return@async HighOpusCandidate(
+                                        url = patched,
+                                        bitrate = candidate.bitrate,
+                                        clientKey = StreamClientUtils.buildClientKey(clientObj)
+                                    )
+                                }
+                            }
+                            null
+                        } catch (e: Exception) {
+                            UmihiHelper.printe(
+                                "Error in HIGH quality parallel resolve for ${clientObj.clientName}: ${e.message}"
+                            )
+                            null
                         }
                     }
-                } catch (e: Exception) {
-                    UmihiHelper.printe("Error in HIGH quality Opus pre-resolution for client ${clientObj.clientName}: ${e.message}")
-                }
+                }.awaitAll().filterNotNull()
+            }
+
+            val best = parallelHits.maxByOrNull { it.bitrate }
+            if (best != null) {
+                lastSuccessfulClientKey = best.clientKey
+                UmihiHelper.printd(
+                    "Enforced HIGH quality Opus URL (parallel) bitrate=${best.bitrate} client=${best.clientKey}"
+                )
+                return best.url
             }
         }
 
