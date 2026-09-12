@@ -1147,6 +1147,7 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
 
     suspend fun setUseAnimatedLyrics(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.USE_ANIMATED_LYRICS] = enabled }
+    }
 
     val preferBetterLyricsFlow: Flow<Boolean> =
         pref { it[PreferencesKeys.PREFER_BETTER_LYRICS] ?: false }
