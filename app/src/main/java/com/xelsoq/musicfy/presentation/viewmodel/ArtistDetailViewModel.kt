@@ -256,7 +256,7 @@ class ArtistDetailViewModel @Inject constructor(
                             }
                         val popularSongs = ytSongsSection?.items
                             ?.mapNotNull { (it as? SongItem)?.toNativeSong() }
-                            ?.take(10)
+                            ?.take(25)
                             .orEmpty()
                             .ifEmpty {
                                 // Fallback: harvest SongItems from every section
@@ -264,7 +264,7 @@ class ArtistDetailViewModel @Inject constructor(
                                     .flatMap { it.items }
                                     .mapNotNull { (it as? SongItem)?.toNativeSong() }
                                     .distinctBy { it.id }
-                                    .take(10)
+                                    .take(25)
                             }
 
                         // ── Albums / Singles: match by title, then fall back by remaining AlbumItems ──
@@ -341,6 +341,12 @@ class ArtistDetailViewModel @Inject constructor(
                             albumsMoreEndpoint = albumsSection?.moreEndpoint,
                             singlesMoreEndpoint = singlesSection?.moreEndpoint,
                             songsMoreEndpoint = ytSongsSection?.moreEndpoint
+                        )
+
+                        // Resolve fuller track count beyond the small Songs shelf (often only ~5 items).
+                        refreshOnlineSongCount(
+                            songsMoreEndpoint = ytSongsSection?.moreEndpoint,
+                            seedSongs = popularSongs,
                         )
                     }.onFailure { e ->
                         _uiState.update {
@@ -724,8 +730,53 @@ class ArtistDetailViewModel @Inject constructor(
             }
         }
     }
-}
 
+    private fun refreshOnlineSongCount(
+        songsMoreEndpoint: BrowseEndpoint?,
+        seedSongs: List<Song>,
+    ) {
+        viewModelScope.launch {
+            try {
+                val collected = LinkedHashMap<String, Song>()
+                seedSongs.forEach { collected[it.id] = it }
+
+                if (songsMoreEndpoint != null) {
+                    val first = withContext(Dispatchers.IO) {
+                        InnerTubeYouTube.artistItems(songsMoreEndpoint).getOrNull()
+                    }
+                    first?.items?.forEach { item ->
+                        (item as? SongItem)?.toNativeSong()?.let { collected[it.id] = it }
+                    }
+                    var continuation = first?.continuation
+                    var pages = 0
+                    while (!continuation.isNullOrBlank() && pages < 3) {
+                        val page = withContext(Dispatchers.IO) {
+                            InnerTubeYouTube.artistItemsContinuation(continuation!!).getOrNull()
+                        } ?: break
+                        page.items.forEach { item ->
+                            (item as? SongItem)?.toNativeSong()?.let { collected[it.id] = it }
+                        }
+                        continuation = page.continuation
+                        pages++
+                    }
+                }
+
+                val all = collected.values.toList()
+                if (all.isEmpty()) return@launch
+                val count = all.size
+                _uiState.update { st ->
+                    if (!st.isOnlineArtist) st
+                    else st.copy(
+                        songs = all,
+                        artist = st.artist?.copy(songCount = count),
+                    )
+                }
+            } catch (e: Exception) {
+                Log.w("ArtistDebug", "refreshOnlineSongCount failed: ${e.message}")
+            }
+        }
+    }
+}
 
 private fun pickLatestRelease(
     albums: List<ArtistAlbumSection>,
