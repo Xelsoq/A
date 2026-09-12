@@ -59,6 +59,9 @@ private val EMBEDDED_LYRICS_KEYS = listOf("LYRICS", "SYNCEDLYRICS", "TTML", "UNS
 
 private fun Lyrics.isValid(): Boolean = !synced.isNullOrEmpty() || !plain.isNullOrEmpty()
 
+private fun Lyrics.hasWordByWord(): Boolean =
+    synced?.any { !it.words.isNullOrEmpty() } == true
+
 internal fun parseBestEmbeddedLyricsField(propertyMap: Map<String, Array<String>>?): Lyrics? {
     var firstPlainLyrics: Lyrics? = null
 
@@ -367,16 +370,25 @@ class LyricsRepositoryImpl @Inject constructor(
     ): Lyrics? = withContext(Dispatchers.IO) {
         val cacheKey = generateCacheKey(song.id)
         val isNeteaseTrack = isNeteaseSong(song)
+        val preferBetterLyrics = try {
+            userPreferencesRepository.preferBetterLyricsFlow.first()
+        } catch (_: Exception) {
+            false
+        }
         
-        Log.d(TAG, "===== FETCH LYRICS START: ${song.displayArtist} - ${song.title} (forceRefresh=$forceRefresh, source=$sourcePreference) =====")
+        Log.d(TAG, "===== FETCH LYRICS START: ${song.displayArtist} - ${song.title} (forceRefresh=$forceRefresh, source=$sourcePreference, preferBetterLyrics=$preferBetterLyrics) =====")
 
-        // Check in-memory cache unless force refresh (early return - matching Rhythm)
+        // Check in-memory cache unless force refresh (early return - matching Rhythm).
+        // When BetterLyrics word-by-word is preferred, skip cache entries that lack word timings
+        // so we can upgrade line-synced lyrics to word-synced.
         if (!forceRefresh && !isNeteaseTrack) {
             lyricsCache.get(cacheKey)?.let { cached ->
-                Log.d(TAG, "===== RETURNING IN-MEMORY CACHED LYRICS =====")
-                return@withContext cached
-            }
-            Log.d(TAG, "===== NO IN-MEMORY CACHE HIT, proceeding to fetch =====")
+                if (!preferBetterLyrics || cached.hasWordByWord()) {
+                    Log.d(TAG, "===== RETURNING IN-MEMORY CACHED LYRICS (wordByWord=${cached.hasWordByWord()}) =====")
+                    return@withContext cached
+                }
+                Log.d(TAG, "===== IN-MEMORY CACHE LACKS WORD TIMINGS; TRYING BETTERLYRICS =====")
+            } ?: Log.d(TAG, "===== NO IN-MEMORY CACHE HIT, proceeding to fetch =====")
         } else if (!forceRefresh && isNeteaseTrack) {
             Log.d(TAG, "===== BYPASSING IN-MEMORY CACHE FOR NETEASE TRACK =====")
         } else {
@@ -385,9 +397,40 @@ class LyricsRepositoryImpl @Inject constructor(
 
         if (!forceRefresh) {
             loadStoredLyrics(song, cacheKey, includeMemoryCache = false)?.let { stored ->
-                lyricsCache.put(cacheKey, stored.first)
-                Log.d(TAG, "===== RETURNING STORED LYRICS WITHOUT REMOTE FETCH =====")
-                return@withContext stored.first
+                val lyrics = stored.first
+                if (!preferBetterLyrics || lyrics.hasWordByWord()) {
+                    lyricsCache.put(cacheKey, lyrics)
+                    Log.d(TAG, "===== RETURNING STORED LYRICS WITHOUT REMOTE FETCH (wordByWord=${lyrics.hasWordByWord()}) =====")
+                    return@withContext lyrics
+                }
+                Log.d(TAG, "===== STORED LYRICS LACK WORD TIMINGS; TRYING BETTERLYRICS =====")
+            }
+        }
+
+        // Prefer BetterLyrics early when the setting is on (before local/embedded/API order).
+        if (preferBetterLyrics) {
+            try {
+                val better = betterLyricsClient.fetchWordByWordLyrics(
+                    title = song.title,
+                    artist = song.displayArtist,
+                    album = song.album,
+                    durationSeconds = (song.duration / 1000).toInt().coerceAtLeast(0)
+                )
+                if (better != null && better.isValid()) {
+                    val hasWords = better.hasWordByWord()
+                    Log.d(TAG, "===== LOADED LYRICS FROM BETTERLYRICS (wordByWord=$hasWords, lines=${better.synced?.size}) =====")
+                    lyricsCache.put(cacheKey, better)
+                    saveLocalLyricsJson(song, better)
+                    // Only short-circuit when we actually got word timings; otherwise fall through
+                    // so other sources can still provide something better if needed.
+                    if (hasWords) {
+                        return@withContext better
+                    }
+                } else {
+                    Log.d(TAG, "BetterLyrics unavailable, continuing with normal sources")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "BetterLyrics early fetch failed: ${e.message}")
             }
         }
 

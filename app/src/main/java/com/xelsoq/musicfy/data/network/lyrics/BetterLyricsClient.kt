@@ -3,7 +3,6 @@ package com.xelsoq.musicfy.data.network.lyrics
 import android.util.Log
 import com.xelsoq.musicfy.data.model.Lyrics
 import com.xelsoq.musicfy.utils.LyricsUtils
-import com.xelsoq.musicfy.utils.TtmlLyricsParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -15,7 +14,7 @@ import javax.inject.Singleton
 
 /**
  * Client for BetterLyrics API (lyrics-api.boidu.dev) used by ArchiveTune.
- * Returns TTML word-by-word lyrics when available, converted to Musicfy [Lyrics].
+ * Fetches Apple Music-style TTML with word-level timings and converts to Musicfy [Lyrics].
  */
 @Singleton
 class BetterLyricsClient @Inject constructor(
@@ -39,12 +38,24 @@ class BetterLyricsClient @Inject constructor(
         val cleanArtist = artist.trim()
         if (cleanTitle.isBlank() || cleanArtist.isBlank()) return@withContext null
 
+        var best: Lyrics? = null
         for (path in listOf(PATH_TTML, PATH_KUGOU)) {
-            fetchFromEndpoint(path, cleanTitle, cleanArtist, album?.trim().orEmpty(), durationSeconds)
-                ?.let { return@withContext it }
+            val candidate = fetchFromEndpoint(path, cleanTitle, cleanArtist, album?.trim().orEmpty(), durationSeconds)
+                ?: continue
+            val hasWords = candidate.synced?.any { !it.words.isNullOrEmpty() } == true
+            Log.d(TAG, "$path parsed: lines=${candidate.synced?.size}, wordByWord=$hasWords")
+            if (hasWords) {
+                return@withContext candidate
+            }
+            if (best == null && candidate.isValidLoose()) {
+                best = candidate
+            }
         }
-        null
+        best
     }
+
+    private fun Lyrics.isValidLoose(): Boolean =
+        !synced.isNullOrEmpty() || !plain.isNullOrEmpty()
 
     private fun fetchFromEndpoint(
         path: String,
@@ -60,15 +71,31 @@ class BetterLyricsClient @Inject constructor(
             if (album.isNotBlank()) urlBuilder.addQueryParameter("al", album)
             if (durationSeconds > 0) urlBuilder.addQueryParameter("d", durationSeconds.toString())
 
-            val request = Request.Builder().url(urlBuilder.build()).get().build()
+            val request = Request.Builder()
+                .url(urlBuilder.build())
+                .get()
+                .header("User-Agent", "Musicfy/1.0 (Android; Music Player)")
+                .header("Accept", "application/json, text/plain, */*")
+                .build()
+
             okHttpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     Log.d(TAG, "$path status ${response.code}")
                     return null
                 }
                 val body = response.body?.string()?.removePrefix("\uFEFF") ?: return null
-                val ttml = extractTtml(body) ?: return null
-                ttmlToLyrics(ttml)
+                Log.d(TAG, "$path body length=${body.length}, starts=${body.take(40)}")
+                val ttml = extractTtml(body) ?: run {
+                    Log.d(TAG, "$path: no TTML payload found")
+                    return null
+                }
+                // LyricsUtils already detects TTML and converts via TtmlLyricsParser → enhanced LRC → SyncedWord
+                val parsed = LyricsUtils.parseLyrics(ttml).copy(areFromRemote = true)
+                if (parsed.synced.isNullOrEmpty() && parsed.plain.isNullOrEmpty()) {
+                    Log.d(TAG, "$path: parse produced empty lyrics")
+                    return null
+                }
+                parsed
             }
         } catch (e: Exception) {
             Log.w(TAG, "$path error: ${e.message}")
@@ -80,29 +107,25 @@ class BetterLyricsClient @Inject constructor(
         if (TTML_ROOT.containsMatchIn(raw.take(4096))) return raw
         return try {
             val obj = JSONObject(raw)
-            sequenceOf("ttml", "lyrics", "data", "result", "response")
-                .mapNotNull { key ->
-                    when {
-                        obj.has(key) && obj.get(key) is String -> obj.optString(key).takeIf { it.isNotBlank() }
-                        obj.has(key) && obj.get(key) is JSONObject -> {
-                            val nested = obj.getJSONObject(key)
-                            nested.optString("ttml").takeIf { it.isNotBlank() }
-                                ?: nested.optString("lyrics").takeIf { it.isNotBlank() }
+            // Prefer top-level ttml (BetterLyrics API shape: {"ttml":"<tt ...>"})
+            obj.optString("ttml").takeIf { it.isNotBlank() && TTML_ROOT.containsMatchIn(it.take(4096)) }
+                ?: sequenceOf("lyrics", "data", "result", "response")
+                    .mapNotNull { key ->
+                        when {
+                            !obj.has(key) -> null
+                            obj.get(key) is String -> obj.optString(key).takeIf { it.isNotBlank() }
+                            obj.get(key) is JSONObject -> {
+                                val nested = obj.getJSONObject(key)
+                                nested.optString("ttml").takeIf { it.isNotBlank() }
+                                    ?: nested.optString("lyrics").takeIf { it.isNotBlank() }
+                            }
+                            else -> null
                         }
-                        else -> null
                     }
-                }
-                .firstOrNull { TTML_ROOT.containsMatchIn(it.take(4096)) }
-        } catch (_: Exception) {
+                    .firstOrNull { TTML_ROOT.containsMatchIn(it.take(4096)) }
+        } catch (e: Exception) {
+            Log.d(TAG, "extractTtml JSON parse failed: ${e.message}")
             null
         }
-    }
-
-    private fun ttmlToLyrics(ttml: String): Lyrics? {
-        val enhancedLrc = TtmlLyricsParser.parseToEnhancedLrc(ttml) ?: return null
-        val parsed = LyricsUtils.parseLyrics(enhancedLrc)
-        return if (parsed.synced != null || parsed.plain != null) {
-            parsed.copy(areFromRemote = true)
-        } else null
     }
 }
