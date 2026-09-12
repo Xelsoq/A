@@ -47,8 +47,8 @@ class BetterLyricsClient @Inject constructor(
             cleanArtist,
             cleanArtist.substringBefore(",").trim(),
             cleanArtist.substringBefore("&").trim(),
-            cleanArtist.substringBefore(" feat", ignoreCase = true).trim(),
-            cleanArtist.substringBefore(" ft.", ignoreCase = true).trim(),
+            cleanArtist.split(Regex("(?i)\s+feat\.?\s+"), limit = 2).first().trim(),
+            cleanArtist.split(Regex("(?i)\s+ft\.?\s+"), limit = 2).first().trim(),
         ).filter { it.isNotBlank() }
 
         var bestLineOnly: Lyrics? = null

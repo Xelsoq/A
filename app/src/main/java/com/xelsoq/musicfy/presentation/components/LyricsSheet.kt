@@ -804,7 +804,8 @@ fun LyricsSheet(
                                 footer = {
                                     if (lyrics?.areFromRemote == true) {
                                         item(key = "provider_text") {
-                                            val isWordByWord = lyrics.synced?.any { !it.words.isNullOrEmpty() } == true
+                                            val currentLyrics = lyrics
+                                            val isWordByWord = currentLyrics?.synced?.any { !it.words.isNullOrEmpty() } == true
                                             ProviderText(
                                                 providerText = stringResource(R.string.lyrics_provided_by),
                                                 uri = stringResource(
