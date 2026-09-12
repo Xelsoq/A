@@ -70,7 +70,6 @@ import androidx.navigation.NavController
 import com.xelsoq.musicfy.data.model.Artist
 import com.xelsoq.musicfy.data.model.Song
 import com.xelsoq.musicfy.presentation.components.CollapsibleCommonTopBar
-import com.xelsoq.musicfy.presentation.components.ExpressiveScrollBar
 import com.xelsoq.musicfy.presentation.components.MiniPlayerHeight
 import com.xelsoq.musicfy.presentation.components.PlaylistBottomSheet
 import com.xelsoq.musicfy.presentation.components.SmartImageCompactListTargetSize
@@ -296,13 +295,6 @@ fun ArtistDetailScreen(
                             .forEach { staleKey -> expandedSections.remove(staleKey) }
                     }
 
-                    val showScrollBar by remember {
-                        derivedStateOf {
-                            collapseFraction > 0.95f &&
-                                (lazyListState.canScrollForward || lazyListState.canScrollBackward)
-                        }
-                    }
-
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier
@@ -315,7 +307,7 @@ fun ArtistDetailScreen(
                         contentPadding = PaddingValues(
                             top = minTopBarHeight + 8.dp,
                             start = 16.dp,
-                            end = if (showScrollBar) 24.dp else 16.dp,
+                            end = 16.dp,
                             bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 24.dp
                         )
                     ) {
@@ -414,8 +406,10 @@ fun ArtistDetailScreen(
                             item(key = "albums_row", contentType = "albums_row") {
                                 LazyRow(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = (-16).dp)
                                 ) {
                                     items(
                                         items = albumSections.take(5),
@@ -457,8 +451,10 @@ fun ArtistDetailScreen(
                             item(key = "singles_row", contentType = "singles_row") {
                                 LazyRow(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = (-16).dp)
                                 ) {
                                     items(
                                         items = singlesAndEPs.take(5),
@@ -567,18 +563,6 @@ fun ArtistDetailScreen(
                                 }
                             }
                         }
-                    }
-
-                    if (collapseFraction > 0.95f) {
-                        ExpressiveScrollBar(
-                            listState = lazyListState,
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(
-                                    top = minTopBarHeight + 12.dp,
-                                    bottom = MiniPlayerHeight + systemNavBarInset + 8.dp
-                                )
-                        )
                     }
 
                     if (UseSharedCollapsibleTopBarProbe) {
@@ -945,7 +929,7 @@ private fun ArtistLatestReleaseCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp),
+            .padding(top = 4.dp, bottom = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Card(
@@ -960,7 +944,7 @@ private fun ArtistLatestReleaseCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
@@ -968,8 +952,8 @@ private fun ArtistLatestReleaseCard(
                     model = release.albumArtUriString,
                     contentDescription = release.title,
                     modifier = Modifier
-                        .size(96.dp)
-                        .clip(RoundedCornerShape(10.dp)),
+                        .size(112.dp)
+                        .clip(RoundedCornerShape(12.dp)),
                 )
                 Column(
                     modifier = Modifier.weight(1f),
@@ -1015,7 +999,7 @@ private fun ArtistAlbumCard(
         ),
         shape = AbsoluteSmoothCornerShape(16.dp, 60),
         modifier = modifier
-            .width(140.dp)
+            .width(156.dp)
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -1026,7 +1010,7 @@ private fun ArtistAlbumCard(
                 model = thumbnailUrl,
                 contentDescription = title,
                 modifier = Modifier
-                    .size(116.dp)
+                    .size(132.dp)
                     .clip(RoundedCornerShape(10.dp))
             )
             Spacer(modifier = Modifier.height(8.dp))
