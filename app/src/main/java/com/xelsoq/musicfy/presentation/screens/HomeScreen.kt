@@ -667,28 +667,8 @@ fun HomeScreen(
         }
     }
     if (showStreamingProviderSheet) {
-        val isNeteaseLoggedIn by neteaseViewModel.isLoggedIn.collectAsStateWithLifecycle()
-        val isQqMusicLoggedIn by qqMusicViewModel.isLoggedIn.collectAsStateWithLifecycle()
-        val isNavidromeLoggedIn by navidromeViewModel.isLoggedIn.collectAsStateWithLifecycle()
-        val isJellyfinLoggedIn by jellyfinViewModel.isLoggedIn.collectAsStateWithLifecycle()
         StreamingProviderSheet(
-            onDismissRequest = { showStreamingProviderSheet = false },
-            isNeteaseLoggedIn = isNeteaseLoggedIn,
-            onNavigateToNeteaseDashboard = {
-                navController.navigateSafely(Screen.NeteaseDashboard.route)
-            },
-            isQqMusicLoggedIn = isQqMusicLoggedIn,
-            onNavigateToQqMusicDashboard = {
-                navController.navigateSafely(Screen.QqMusicDashboard.route)
-            },
-            isNavidromeLoggedIn = isNavidromeLoggedIn,
-            onNavigateToNavidromeDashboard = {
-                navController.navigateSafely(Screen.NavidromeDashboard.route)
-            },
-            isJellyfinLoggedIn = isJellyfinLoggedIn,
-            onNavigateToJellyfinDashboard = {
-                navController.navigateSafely(Screen.JellyfinDashboard.route)
-            }
+            onDismissRequest = { showStreamingProviderSheet = false }
         )
     }
     if (shouldShowCleanInstallDisclaimer) {
