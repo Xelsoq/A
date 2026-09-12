@@ -410,9 +410,7 @@ fun ArtistDetailScreen(
                                 LazyRow(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = (-16).dp)
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
                                     items(
                                         items = albumSections.take(5),
@@ -455,9 +453,7 @@ fun ArtistDetailScreen(
                                 LazyRow(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = (-16).dp)
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
                                     items(
                                         items = singlesAndEPs.take(5),
