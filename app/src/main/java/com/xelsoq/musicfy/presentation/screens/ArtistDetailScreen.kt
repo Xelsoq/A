@@ -279,6 +279,7 @@ fun ArtistDetailScreen(
                     val popularSongs = uiState.popularSongs
                     val albumSections = uiState.albumSections
                     val singlesAndEPs = uiState.singlesAndEPs
+                    val latestRelease = uiState.latestRelease
                     val isOnlineArtist = uiState.isOnlineArtist
                     val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
 
@@ -340,6 +341,20 @@ fun ArtistDetailScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                            }
+                        }
+
+                        // ─── Latest Release (ArchiveTune-style) ───
+                        if (latestRelease != null) {
+                            item(key = "latest_release", contentType = "latest_release") {
+                                ArtistLatestReleaseCard(
+                                    release = latestRelease,
+                                    onClick = {
+                                        navController.navigateSafely(
+                                            Screen.AlbumDetail.createRoute(latestRelease.albumId)
+                                        )
+                                    }
+                                )
                             }
                         }
 
@@ -908,6 +923,79 @@ private fun ArtistPopularSongItem(
                     contentDescription = "More options",
                     modifier = Modifier.size(16.dp)
                 )
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun ArtistLatestReleaseCard(
+    release: com.xelsoq.musicfy.presentation.viewmodel.ArtistLatestRelease,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val metadata = buildString {
+        append(release.releaseTypeLabel)
+        release.year?.let { year ->
+            append(" • ")
+            append(year)
+        }
+    }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Card(
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                SmartImage(
+                    model = release.albumArtUriString,
+                    contentDescription = release.title,
+                    modifier = Modifier
+                        .size(96.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = "LATEST RELEASE",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp,
+                    )
+                    Text(
+                        text = release.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = metadata,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

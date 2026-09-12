@@ -50,6 +50,7 @@ data class ArtistDetailUiState(
     val popularSongs: List<Song> = emptyList(),
     val albumSections: List<ArtistAlbumSection> = emptyList(),
     val singlesAndEPs: List<ArtistAlbumSection> = emptyList(),
+    val latestRelease: ArtistLatestRelease? = null,
     val effectiveImageUrl: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -81,6 +82,17 @@ data class ArtistAlbumSection(
     val songs: List<Song>,
     val browseId: String? = null,
     val sectionType: ArtistSectionType = ArtistSectionType.ALBUM
+)
+
+/** Highlight card for the most recent album/single (ArchiveTune-style "Latest Release"). */
+@Immutable
+data class ArtistLatestRelease(
+    val albumId: Long,
+    val title: String,
+    val year: Int?,
+    val albumArtUriString: String?,
+    val browseId: String? = null,
+    val releaseTypeLabel: String = "Album", // Album | Single | EP
 )
 
 @HiltViewModel
@@ -311,12 +323,15 @@ class ArtistDetailViewModel @Inject constructor(
                         }
 
                         _artistColorScheme.value = newScheme
+                        val latestRelease = pickLatestRelease(albumSections, singlesAndEPs)
+
                         _uiState.value = ArtistDetailUiState(
                             artist = artistModel,
                             songs = popularSongs,
                             popularSongs = popularSongs,
                             albumSections = albumSections,
                             singlesAndEPs = singlesAndEPs,
+                            latestRelease = latestRelease,
                             effectiveImageUrl = effectiveImageUrl,
                             isLoading = false,
                             isOnlineArtist = true,
@@ -391,6 +406,7 @@ class ArtistDetailViewModel @Inject constructor(
                                 popularSongs = emptyList(),
                                 albumSections = albumSections,
                                 singlesAndEPs = emptyList(),
+                                latestRelease = pickLatestRelease(albumSections),
                                 effectiveImageUrl = effectiveUrl,
                                 isLoading = false,
                                 isOnlineArtist = false
@@ -708,6 +724,30 @@ class ArtistDetailViewModel @Inject constructor(
             }
         }
     }
+}
+
+
+private fun pickLatestRelease(
+    albums: List<ArtistAlbumSection>,
+    singles: List<ArtistAlbumSection> = emptyList(),
+): ArtistLatestRelease? {
+    val candidates = albums + singles
+    val best = candidates.maxByOrNull { it.year ?: Int.MIN_VALUE } ?: return null
+    val label = when (best.sectionType) {
+        ArtistSectionType.SINGLE_EP -> {
+            val t = best.title.lowercase()
+            if ("ep" in t && "single" !in t) "EP" else "Single"
+        }
+        else -> "Album"
+    }
+    return ArtistLatestRelease(
+        albumId = best.albumId,
+        title = best.title,
+        year = best.year,
+        albumArtUriString = best.albumArtUriString,
+        browseId = best.browseId,
+        releaseTypeLabel = label,
+    )
 }
 
 private val songDisplayComparator = compareBy<Song> { it.discNumber ?: 1 }
