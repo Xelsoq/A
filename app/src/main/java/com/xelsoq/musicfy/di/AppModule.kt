@@ -39,6 +39,7 @@ import com.xelsoq.musicfy.data.network.lyrics.LrcLibApiService
 import com.xelsoq.musicfy.data.repository.ArtistImageRepository
 import com.xelsoq.musicfy.data.repository.LyricsRepository
 import com.xelsoq.musicfy.data.repository.LyricsRepositoryImpl
+import com.xelsoq.musicfy.data.network.lyrics.BetterLyricsClient
 import com.xelsoq.musicfy.data.repository.MediaStoreSongRepository
 import com.xelsoq.musicfy.data.repository.MusicRepository
 import com.xelsoq.musicfy.data.repository.MusicRepositoryImpl
@@ -323,6 +324,7 @@ object AppModule {
         lrcLibApiService: LrcLibApiService,
         lyricsDao: LyricsDao,
         okHttpClient: OkHttpClient,
+        betterLyricsClient: BetterLyricsClient,
         userPreferencesRepository: UserPreferencesRepository
     ): LyricsRepository {
         return LyricsRepositoryImpl(
@@ -330,6 +332,7 @@ object AppModule {
             lrcLibApiService = lrcLibApiService,
             lyricsDao = lyricsDao,
             okHttpClient = okHttpClient,
+            betterLyricsClient = betterLyricsClient,
             userPreferencesRepository = userPreferencesRepository
         )
     }
