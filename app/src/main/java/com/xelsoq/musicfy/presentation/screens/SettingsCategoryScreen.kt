@@ -531,13 +531,6 @@ fun SettingsCategoryScreen(
                                     },
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
-                                SwitchSettingItem(
-                                    title = stringResource(R.string.settings_better_lyrics_word_by_word_title),
-                                    subtitle = stringResource(R.string.settings_better_lyrics_word_by_word_subtitle),
-                                    checked = uiState.enableBetterLyricsWordByWord,
-                                    onCheckedChange = { settingsViewModel.setEnableBetterLyricsWordByWord(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary) }
-                                )
                                 SettingsItem(
                                     title = stringResource(R.string.settings_reset_imported_lyrics_title),
                                     subtitle = stringResource(R.string.settings_reset_imported_lyrics_subtitle),
@@ -695,6 +688,20 @@ fun SettingsCategoryScreen(
                                     subtitle = stringResource(R.string.settings_exp_animated_lyrics_subtitle),
                                     checked = uiState.useAnimatedLyrics,
                                     onCheckedChange = settingsViewModel::setUseAnimatedLyrics,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.MusicNote,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                )
+
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.settings_prefer_better_lyrics_title),
+                                    subtitle = stringResource(R.string.settings_prefer_better_lyrics_subtitle),
+                                    checked = uiState.preferBetterLyrics,
+                                    onCheckedChange = settingsViewModel::setPreferBetterLyrics,
                                     leadingIcon = {
                                         Icon(
                                             imageVector = Icons.Rounded.MusicNote,

@@ -224,7 +224,6 @@ class UserPreferencesRepository @Inject constructor(
         // Lyrics
         val LYRICS_SYNC_OFFSETS = stringPreferencesKey("lyrics_sync_offsets_json")
         val LYRICS_SOURCE_PREFERENCE = stringPreferencesKey("lyrics_source_preference")
-        val ENABLE_BETTER_LYRICS_WORD_BY_WORD = booleanPreferencesKey("enable_better_lyrics_word_by_word")
         val AUTO_SCAN_LRC_FILES = booleanPreferencesKey("auto_scan_lrc_files")
 
         // Developer options
@@ -243,6 +242,7 @@ class UserPreferencesRepository @Inject constructor(
         val USE_ANIMATED_LYRICS = booleanPreferencesKey("use_animated_lyrics")
         val ANIMATED_LYRICS_BLUR_ENABLED = booleanPreferencesKey("animated_lyrics_blur_enabled")
         val ANIMATED_LYRICS_BLUR_STRENGTH = androidx.datastore.preferences.core.floatPreferencesKey("animated_lyrics_blur_strength")
+        val PREFER_BETTER_LYRICS = booleanPreferencesKey("prefer_better_lyrics")
         val DISABLE_BLUR_ALL_OVER = booleanPreferencesKey("disable_blur_all_over")
         // View preferences
         val IS_GENRE_GRID_VIEW = booleanPreferencesKey("is_genre_grid_view")
@@ -1121,17 +1121,6 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         dataStore.edit { it[PreferencesKeys.LYRICS_SOURCE_PREFERENCE] = preference.name }
     }
 
-    /**
-     * When enabled, prefer BetterLyrics (TTML / word-by-word karaoke timing) when fetching
-     * online lyrics — same source used by ArchiveTune.
-     */
-    val enableBetterLyricsWordByWordFlow: Flow<Boolean> =
-        pref { it[PreferencesKeys.ENABLE_BETTER_LYRICS_WORD_BY_WORD] ?: false }
-
-    suspend fun setEnableBetterLyricsWordByWord(enabled: Boolean) {
-        dataStore.edit { it[PreferencesKeys.ENABLE_BETTER_LYRICS_WORD_BY_WORD] = enabled }
-    }
-
     val autoScanLrcFilesFlow: Flow<Boolean> =
         pref { it[PreferencesKeys.AUTO_SCAN_LRC_FILES] ?: false }
 
@@ -1158,6 +1147,12 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
 
     suspend fun setUseAnimatedLyrics(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.USE_ANIMATED_LYRICS] = enabled }
+
+    val preferBetterLyricsFlow: Flow<Boolean> =
+        pref { it[PreferencesKeys.PREFER_BETTER_LYRICS] ?: false }
+
+    suspend fun setPreferBetterLyrics(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.PREFER_BETTER_LYRICS] = enabled }
     }
 
     val animatedLyricsBlurEnabledFlow: Flow<Boolean> =

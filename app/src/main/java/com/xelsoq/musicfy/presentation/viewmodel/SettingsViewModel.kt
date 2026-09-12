@@ -78,7 +78,6 @@ data class SettingsUiState(
     val persistentShuffleEnabled: Boolean = false,
     val folderBackGestureNavigation: Boolean = true,
     val lyricsSourcePreference: LyricsSourcePreference = LyricsSourcePreference.EMBEDDED_FIRST,
-    val enableBetterLyricsWordByWord: Boolean = false,
     val autoScanLrcFiles: Boolean = false,
     val blockedDirectories: Set<String> = emptySet(),
     val availableModels: List<GeminiModel> = emptyList(),
@@ -98,6 +97,7 @@ data class SettingsUiState(
     val useAnimatedLyrics: Boolean = true,
     val animatedLyricsBlurEnabled: Boolean = true,
     val animatedLyricsBlurStrength: Float = 2.5f,
+    val preferBetterLyrics: Boolean = false,
     val disableBlurAllOver: Boolean = false,
     val backupInfoDismissed: Boolean = false,
     val isDataTransferInProgress: Boolean = false,
@@ -732,8 +732,8 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            userPreferencesRepository.enableBetterLyricsWordByWordFlow.collect { enabled ->
-                _uiState.update { it.copy(enableBetterLyricsWordByWord = enabled) }
+            userPreferencesRepository.preferBetterLyricsFlow.collect { enabled ->
+                _uiState.update { it.copy(preferBetterLyrics = enabled) }
             }
         }
 
@@ -1032,12 +1032,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setEnableBetterLyricsWordByWord(enabled: Boolean) {
-        viewModelScope.launch {
-            userPreferencesRepository.setEnableBetterLyricsWordByWord(enabled)
-        }
-    }
-
     fun setAutoScanLrcFiles(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setAutoScanLrcFiles(enabled)
@@ -1116,6 +1110,12 @@ class SettingsViewModel @Inject constructor(
     fun setUseAnimatedLyrics(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setUseAnimatedLyrics(enabled)
+        }
+    }
+
+    fun setPreferBetterLyrics(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setPreferBetterLyrics(enabled)
         }
     }
 
