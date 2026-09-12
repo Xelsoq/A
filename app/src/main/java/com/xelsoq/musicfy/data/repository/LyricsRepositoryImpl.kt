@@ -18,6 +18,7 @@ import com.xelsoq.musicfy.data.model.LyricsSourcePreference
 import com.xelsoq.musicfy.data.model.Song
 import com.xelsoq.musicfy.data.network.lyrics.LrcLibApiService
 import com.xelsoq.musicfy.data.network.lyrics.LrcLibResponse
+import com.xelsoq.musicfy.data.preferences.UserPreferencesRepository
 import com.xelsoq.musicfy.utils.LyricsImportSecurity
 import com.xelsoq.musicfy.utils.LyricsImportValidationResult
 import com.xelsoq.musicfy.utils.LogUtils
@@ -30,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -44,8 +46,10 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.async
@@ -116,7 +120,8 @@ class LyricsRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val lrcLibApiService: LrcLibApiService,
     private val lyricsDao: com.xelsoq.musicfy.data.database.LyricsDao,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : LyricsRepository {
 
 
@@ -130,6 +135,9 @@ class LyricsRepositoryImpl @Inject constructor(
         private const val LRCLIB_MIN_DELAY = 100L
         private const val MAX_CALLS_PER_MINUTE = 30
         private const val AMLLDB_NCM_LYRICS_BASE_URL = "https://amlldb.bikonoo.com/lyrics/ncm-lyrics/"
+        /** Same public API used by ArchiveTune BetterLyrics provider. */
+        private const val BETTER_LYRICS_API_BASE = "https://lyrics-api.boidu.dev/"
+        private val BETTER_LYRICS_ENDPOINTS = listOf("getLyrics", "kugou/getLyrics", "qq/getLyrics")
         private const val NETWORK_RETRY_ATTEMPTS = 3
         private const val NETWORK_RETRY_INITIAL_DELAY_MS = 500L
 
@@ -473,6 +481,23 @@ class LyricsRepositoryImpl @Inject constructor(
                 return@withContext amlLyrics
             }
             Log.d(TAG, "AMLLDB unavailable for Netease song, falling back to cache/LRCLIB")
+        }
+
+        // BetterLyrics (ArchiveTune) — word-by-word / TTML when enabled in settings
+        val betterLyricsEnabled = runCatching {
+            userPreferencesRepository.enableBetterLyricsFlow.first()
+        }.getOrDefault(true)
+        if (betterLyricsEnabled) {
+            val betterLyrics = fetchFromBetterLyrics(song)
+            if (betterLyrics != null) {
+                val hasWords = betterLyrics.synced?.any { !it.words.isNullOrEmpty() } == true
+                Log.d(
+                    TAG,
+                    "===== LOADED LYRICS FROM BETTERLYRICS (word-by-word=$hasWords) ====="
+                )
+                return@withContext betterLyrics
+            }
+            Log.d(TAG, "BetterLyrics unavailable, falling back to cache/LRCLIB")
         }
 
         // Check JSON disk cache first (matching Rhythm)
@@ -874,6 +899,99 @@ class LyricsRepositoryImpl @Inject constructor(
         song.neteaseId?.let { return it }
         if (!song.contentUriString.startsWith("netease://")) return null
         return Uri.parse(song.contentUriString).host?.toLongOrNull()
+    }
+
+    /**
+     * Fetches lyrics from BetterLyrics public API (same endpoints as ArchiveTune).
+     * Response is typically TTML or LRC with optional word-level timing; [LyricsUtils.parseLyrics]
+     * already converts TTML via [com.xelsoq.musicfy.utils.TtmlLyricsParser].
+     */
+    private suspend fun fetchFromBetterLyrics(song: Song): Lyrics? = withContext(Dispatchers.IO) {
+        val cleanTitle = song.title.trim().replace(BRACKETED_QUALIFIER_REGEX, "").trim()
+        val cleanArtist = song.displayArtist.trim().replace(BRACKETED_QUALIFIER_REGEX, "").trim()
+        if (cleanTitle.isBlank() || cleanArtist.isBlank()) return@withContext null
+
+        val album = song.album.trim().takeIf { it.isNotBlank() }
+        val durationSeconds = (song.duration / 1000).toInt().takeIf { it > 0 } ?: -1
+
+        for (endpoint in BETTER_LYRICS_ENDPOINTS) {
+            try {
+                val urlBuilder = (BETTER_LYRICS_API_BASE + endpoint).toHttpUrl().newBuilder()
+                    .addQueryParameter("s", cleanTitle)
+                    .addQueryParameter("a", cleanArtist)
+                if (!album.isNullOrBlank()) {
+                    urlBuilder.addQueryParameter("al", album)
+                }
+                if (durationSeconds > 0) {
+                    urlBuilder.addQueryParameter("d", durationSeconds.toString())
+                }
+                val request = Request.Builder()
+                    .url(urlBuilder.build())
+                    .get()
+                    .header("Accept", "application/json, text/plain, */*")
+                    .build()
+
+                val bodyText = withNetworkRetry(
+                    operationName = "betterlyrics:$endpoint",
+                    shouldRetry = { throwable -> throwable is IOException }
+                ) {
+                    okHttpClient.newCall(request).execute().use { response ->
+                        when {
+                            response.isSuccessful -> response.body.string()
+                            response.code.isRetryableHttpStatusCode() ->
+                                throw IOException("BetterLyrics HTTP ${response.code} ($endpoint)")
+                            else -> ""
+                        }
+                    }
+                }
+
+                val content = extractBetterLyricsContent(bodyText) ?: continue
+                val parsed = LyricsUtils.parseLyrics(content)
+                if (!parsed.isValid()) continue
+                return@withContext parsed.copy(areFromRemote = true)
+            } catch (e: Exception) {
+                Log.w(TAG, "BetterLyrics $endpoint failed: ${e.message}")
+            }
+        }
+        null
+    }
+
+    /**
+     * BetterLyrics may return raw TTML/LRC or a JSON envelope with a lyrics/content field.
+     */
+    private fun extractBetterLyricsContent(raw: String): String? {
+        val text = raw.removePrefix("\uFEFF").trim()
+        if (text.isBlank()) return null
+        if (text.startsWith("<") || text.startsWith("[") || text.contains("<tt", ignoreCase = true)) {
+            return text
+        }
+        return runCatching {
+            var current: Any? = JSONObject(text)
+            repeat(3) {
+                when (val node = current) {
+                    is JSONObject -> {
+                        val keys = listOf(
+                            "lyrics", "content", "syncedLyrics", "plainLyrics",
+                            "ttml", "lrc", "data", "result"
+                        )
+                        for (key in keys) {
+                            if (!node.has(key) || node.isNull(key)) continue
+                            val value = node.get(key)
+                            when (value) {
+                                is String -> if (value.isNotBlank()) return@runCatching value
+                                is JSONObject -> {
+                                    current = value
+                                    return@repeat
+                                }
+                            }
+                        }
+                        return@runCatching null
+                    }
+                    else -> return@runCatching null
+                }
+            }
+            null
+        }.getOrNull()
     }
 
     private suspend fun fetchFromAmlldb(song: Song): Lyrics? = withContext(Dispatchers.IO) {

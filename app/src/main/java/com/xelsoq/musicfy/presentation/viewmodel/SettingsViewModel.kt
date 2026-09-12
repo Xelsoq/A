@@ -26,7 +26,6 @@ import com.xelsoq.musicfy.data.preferences.AlbumArtPaletteStyle
 import com.xelsoq.musicfy.data.preferences.AppLanguage
 import com.xelsoq.musicfy.data.preferences.CollagePattern
 import com.xelsoq.musicfy.data.preferences.FullPlayerLoadingTweaks
-import com.xelsoq.musicfy.data.preferences.PlayerLayoutConfig
 import com.xelsoq.musicfy.data.preferences.ThemePreferencesRepository
 import com.xelsoq.musicfy.data.repository.LyricsRepository
 import com.xelsoq.musicfy.data.repository.MusicRepository
@@ -80,6 +79,7 @@ data class SettingsUiState(
     val folderBackGestureNavigation: Boolean = true,
     val lyricsSourcePreference: LyricsSourcePreference = LyricsSourcePreference.EMBEDDED_FIRST,
     val autoScanLrcFiles: Boolean = false,
+    val enableBetterLyrics: Boolean = true,
     val blockedDirectories: Set<String> = emptySet(),
     val availableModels: List<GeminiModel> = emptyList(),
     val isLoadingModels: Boolean = false,
@@ -88,7 +88,6 @@ data class SettingsUiState(
     val beta05CleanInstallDisclaimerDismissed: Boolean? = null,
     val fullPlayerLoadingTweaks: FullPlayerLoadingTweaks = FullPlayerLoadingTweaks(),
     val showPlayerFileInfo: Boolean = true,
-    val playerLayoutConfig: PlayerLayoutConfig = PlayerLayoutConfig.default(),
     // Developer Options
     val albumArtQuality: AlbumArtQuality = AlbumArtQuality.MEDIUM,
     val albumArtCacheLimitMb: Int = 200,
@@ -727,14 +726,14 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            userPreferencesRepository.playerLayoutConfigFlow.collect { config ->
-                _uiState.update { it.copy(playerLayoutConfig = config) }
+            userPreferencesRepository.useAnimatedLyricsFlow.collect { enabled ->
+                _uiState.update { it.copy(useAnimatedLyrics = enabled) }
             }
         }
 
         viewModelScope.launch {
-            userPreferencesRepository.useAnimatedLyricsFlow.collect { enabled ->
-                _uiState.update { it.copy(useAnimatedLyrics = enabled) }
+            userPreferencesRepository.enableBetterLyricsFlow.collect { enabled ->
+                _uiState.update { it.copy(enableBetterLyrics = enabled) }
             }
         }
 
@@ -955,12 +954,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setPlayerLayoutConfig(config: PlayerLayoutConfig) {
-        viewModelScope.launch {
-            userPreferencesRepository.setPlayerLayoutConfig(config)
-        }
-    }
-
     fun setShowScrollbar(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setShowScrollbar(enabled)
@@ -1042,6 +1035,12 @@ class SettingsViewModel @Inject constructor(
     fun setAutoScanLrcFiles(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setAutoScanLrcFiles(enabled)
+        }
+    }
+
+    fun setEnableBetterLyrics(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setEnableBetterLyrics(enabled)
         }
     }
 

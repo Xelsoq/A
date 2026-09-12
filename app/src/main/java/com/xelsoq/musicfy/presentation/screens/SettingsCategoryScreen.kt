@@ -65,7 +65,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ClearAll
-import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
@@ -532,6 +531,19 @@ fun SettingsCategoryScreen(
                                     },
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.settings_better_lyrics_title),
+                                    subtitle = stringResource(R.string.settings_better_lyrics_subtitle),
+                                    checked = uiState.enableBetterLyrics,
+                                    onCheckedChange = settingsViewModel::setEnableBetterLyrics,
+                                    leadingIcon = {
+                                        Icon(
+                                            painterResource(R.drawable.rounded_lyrics_24),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                )
                                 SettingsItem(
                                     title = stringResource(R.string.settings_reset_imported_lyrics_title),
                                     subtitle = stringResource(R.string.settings_reset_imported_lyrics_subtitle),
@@ -615,13 +627,6 @@ fun SettingsCategoryScreen(
                                     leadingIcon = { Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.secondary) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = { navController.navigateSafely(Screen.PaletteStyle.route) }
-                                )
-                                SettingsItem(
-                                    title = stringResource(R.string.settings_player_layout_title),
-                                    subtitle = stringResource(R.string.settings_player_layout_subtitle),
-                                    leadingIcon = { Icon(Icons.Outlined.Dashboard, null, tint = MaterialTheme.colorScheme.secondary) },
-                                    trailingIcon = { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                                    onClick = { navController.navigateSafely(Screen.PlayerLayout.route) }
                                 )
                                 ThemeSelectorItem(
                                     label = stringResource(R.string.settings_carousel_style_title),
